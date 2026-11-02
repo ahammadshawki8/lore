@@ -27,11 +27,15 @@
   let pressureData = { phrase: '', value: 0 };
   let sceneDemoTimer = null;
   let countdownTimer = null;
+  let currentVoteLeader = null;
+  let hitStopTimer = null;
+  let collectionCount = 0;
+  let lastCountdownSecond = null;
 
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[character]);
-  const avatarFor = (user) => user?.avatar || `https://api.dicebear.com/9.x/bottts/svg?seed=${encodeURIComponent(user?.login || user?.display_name || 'witness')}`;
+  const avatarSeed = (user) => String(user?.login || user?.display_name || 'witness');
   const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
   function safeTween(target, vars) {
@@ -65,6 +69,7 @@
     const root = byId('pressure');
     const progress = byId('pressure-progress');
     byId('pressure-phrase').textContent = String(pressureData.phrase || 'lore stirs').slice(0, 28);
+    root.classList.toggle('is-surging', amount > .7);
     const hidden = Boolean(activeScene) || (demoMode && demoSummonSeen);
     if (amount <= 0 || hidden) {
       if (heartbeatStop) heartbeatStop();
@@ -116,7 +121,7 @@
     }
     add(particle) {
       this.particles.push({ age: 0, ...particle });
-      if (this.particles.length > 700) this.particles.splice(0, this.particles.length - 700);
+      if (this.particles.length > 400) this.particles.splice(0, this.particles.length - 400);
     }
     burst(x, y, kind = 'spark', count = 24, color) {
       for (let index = 0; index < count; index += 1) {
@@ -125,7 +130,8 @@
         this.add({
           kind, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - (kind === 'ember' ? 55 : 0),
           life: kind === 'smoke' ? 900 + Math.random() * 1200 : 450 + Math.random() * 900,
-          size: kind === 'smoke' ? 9 + Math.random() * 24 : 1.5 + Math.random() * 4,
+          size: kind === 'smoke' ? 9 + Math.random() * 24 : (kind === 'confetti' ? 4 + Math.random() * 6 : 1.5 + Math.random() * 4),
+          rotation: Math.random() * Math.PI, spin: (Math.random() - .5) * 9,
           alpha: .55 + Math.random() * .4, color,
         });
       }
@@ -157,6 +163,8 @@
         }
         particle.x += particle.vx * delta;
         particle.y += particle.vy * delta;
+        particle.rotation = (particle.rotation || 0) + (particle.spin || 0) * delta;
+        if (particle.kind === 'confetti' || particle.kind === 'coin') particle.vy += 210 * delta;
         if (particle.kind === 'mote' && particle.y < -8) particle.y = this.height + 8;
         const progress = particle.age / particle.life;
         const fade = Math.min(1, progress * 5, (1 - progress) * 2.4);
@@ -170,6 +178,12 @@
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, radius, 0, Math.PI * 2);
           ctx.fill();
+        } else if (particle.kind === 'confetti' || particle.kind === 'coin') {
+          const color = particle.color || (particle.kind === 'coin' ? '#f5c451' : ['#ff3ea5', '#3ee6ff', '#b6ff3e', '#f5c451'][index % 4]);
+          ctx.save(); ctx.translate(particle.x, particle.y); ctx.rotate(particle.rotation); ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 10;
+          if (particle.kind === 'coin') { ctx.beginPath(); ctx.ellipse(0, 0, particle.size, particle.size * .72, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff0a6'; ctx.lineWidth = 1; ctx.stroke(); }
+          else ctx.fillRect(-particle.size / 2, -particle.size, particle.size, particle.size * 1.7);
+          ctx.restore();
         } else {
           const color = particle.color || (particle.kind === 'ember' ? '#ff6b36' : particle.kind === 'mote' ? '#f5c451' : '#ffe9a6');
           ctx.globalAlpha = alpha;
@@ -243,6 +257,9 @@
       source.start();
       source.stop(this.context.currentTime + duration + .02);
     }
+    riser() { this.tone(75, 520, 1.75, 'sawtooth', .16); this.noise(1.35, 'bandpass', 180, 4200, .12, .7); }
+    tick() { this.tone(940, 720, .055, 'square', .075); }
+    drumroll() { for (let index = 0; index < 9; index += 1) setTimeout(() => this.noise(.09, 'highpass', 900, 1800, .065), index * 62); }
     boom() {
       this.tone(120, 30, .8, 'sine', .65);
       this.noise(.32, 'lowpass', 900, 90, .26);
@@ -298,21 +315,30 @@
     }, { once: true });
   }
 
-  sceneLayer.addEventListener('error', (event) => {
-    const image = event.target;
-    if (!(image instanceof HTMLImageElement)) return;
-    if (image.dataset.fallback && image.src !== image.dataset.fallback) image.src = image.dataset.fallback;
-    else if (image.classList.contains('clip-thumbnail')) {
-      image.style.opacity = '0';
-      const placeholder = image.parentElement?.querySelector('.preserved');
-      if (placeholder) placeholder.style.opacity = '1';
-    }
-  }, true);
-
   function imageTag(user, className = '') {
-    const url = avatarFor(user);
-    const fallback = `https://api.dicebear.com/9.x/bottts/svg?seed=${encodeURIComponent(user?.login || 'witness')}`;
-    return `<img class="${className}" src="${escapeHtml(url)}" data-fallback="${escapeHtml(fallback)}" alt="${escapeHtml(user?.display_name || user?.login || 'witness')}">`;
+    const name = user?.display_name || user?.login || 'witness';
+    let hash = 0;
+    for (const character of avatarSeed(user)) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+    const hue = hash % 360;
+    const initial = escapeHtml(name.trim().charAt(0).toUpperCase() || 'W');
+    return `<span class="avatar-orb ${className}" role="img" aria-label="${escapeHtml(name)}" style="--avatar-hue:${hue}"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="47"/><path d="M17 91c3-22 15-33 33-33s30 11 33 33"/><circle cx="50" cy="37" r="18"/><text x="50" y="94">${initial}</text></svg></span>`;
+  }
+
+  function hitStopImpact(color = '#f5c451', x = window.innerWidth / 2, y = window.innerHeight / 2) {
+    if (motion) {
+      motion.globalTimeline.timeScale(0);
+      if (hitStopTimer) clearTimeout(hitStopTimer);
+      hitStopTimer = setTimeout(() => motion.globalTimeline.timeScale(1), 72);
+    }
+    const shock = byId('shockwave');
+    shock.style.left = `${x}px`; shock.style.top = `${y}px`; shock.style.borderColor = color; shock.style.filter = `drop-shadow(0 0 20px ${color})`;
+    if (motion) {
+      motion.fromTo(shock, { opacity: .95, scale: .08 }, { opacity: 0, scale: 8, duration: .62, ease: 'power2.out', overwrite: true });
+      motion.fromTo(byId('chromatic-flash'), { opacity: .72 }, { opacity: 0, duration: .34, ease: 'power2.out', overwrite: true });
+      motion.fromTo(byId('flash'), { opacity: .72 }, { opacity: 0, duration: .23, ease: 'power2.out', overwrite: true });
+      motion.to(sceneLayer, { x: 7, y: -5, duration: .04, yoyo: true, repeat: 6, overwrite: true });
+    }
+    particles.burst(x, y, 'spark', 28, color);
   }
 
   function setSceneMarkup(className, markup) {
@@ -344,6 +370,8 @@
       const seconds = Math.max(0, Math.ceil((end - Date.now()) / 1000));
       const text = progress.parentElement?.querySelector('text');
       if (text) text.textContent = `${seconds}`;
+      const finalNode = byId('final-countdown');
+      if (finalNode) { finalNode.textContent = seconds <= 5 && seconds > 0 ? String(seconds) : ''; finalNode.classList.toggle('is-live', seconds <= 5 && seconds > 0); if (seconds <= 5 && seconds > 0 && seconds !== lastCountdownSecond) { lastCountdownSecond = seconds; sound.tick(); if (motion) motion.fromTo(finalNode, { scale: 1.55, opacity: .4 }, { scale: 1, opacity: 1, duration: .24, ease: 'back.out(2)' }); } }
       if (seconds <= 0) clearInterval(countdownTimer);
     }, 250);
   }
@@ -475,7 +503,7 @@
       const y = 350 + Math.sin(angle - Math.PI / 2) * 305;
       return `<text class="circle-runes" x="${x.toFixed(2)}" y="${y.toFixed(2)}" transform="rotate(${(angle * 180 / Math.PI + 90).toFixed(1)} ${x.toFixed(2)} ${y.toFixed(2)})">${runeGlyphs[index % runeGlyphs.length]}</text>`;
     }).join('');
-    return `<div class="scene-backwash"></div><div class="summon-title scene-title">THE SUMMONING</div><div id="summon-caption" class="summon-subtitle scene-subtitle"></div><div class="summon-pillar" id="summon-pillar"></div><div class="summoning-circle" id="summoning-circle"><svg viewBox="0 0 700 700" aria-hidden="true"><circle class="circle-line" cx="350" cy="350" r="320"></circle><circle class="circle-line dim" cx="350" cy="350" r="294"></circle><circle class="circle-line" cx="350" cy="350" r="260"></circle><g id="rune-ring-a">${chars}</g><g id="rune-ring-b">${svgRuneRing(350, 350, 130, 16, 'circle-runes')}</g><path id="pentagram" class="pentagram" d="M350 185 L445 480 L195 295 L505 295 L255 480 Z M350 185 L350 520"></path><circle id="summon-countdown" class="countdown-ring" cx="350" cy="350" r="338"></circle></svg></div><div id="summon-slots"></div>`;
+    return `<div class="scene-backwash"></div><div class="summon-title scene-title">THE SUMMONING</div><div id="summon-caption" class="summon-subtitle scene-subtitle"></div><div class="summon-pillar" id="summon-pillar"></div><div class="summoning-circle" id="summoning-circle"><svg viewBox="0 0 700 700" aria-hidden="true"><circle class="circle-line" cx="350" cy="350" r="320"></circle><circle class="circle-line dim" cx="350" cy="350" r="294"></circle><circle class="circle-line" cx="350" cy="350" r="260"></circle><g id="rune-ring-a">${chars}</g><g id="sigil-hex" class="sigil-geometry"><polygon points="350,55 605,202 605,498 350,645 95,498 95,202"></polygon></g><g id="sigil-triangle" class="sigil-geometry"><polygon points="350,125 545,485 155,485"></polygon></g><circle id="sigil-core" class="sigil-geometry" cx="350" cy="350" r="125"></circle><circle id="summon-countdown" class="countdown-ring" cx="350" cy="350" r="338"></circle></svg></div><div id="summon-slots"></div><div class="summon-combo-display" id="summon-combo-display"></div>`;
   }
 
   function updateSummon(data = {}) {
@@ -490,29 +518,40 @@
     joiners.forEach((user, index) => {
       const key = String(user.login || user.display_name || index);
       if (known.has(key)) return;
-      const angle = -Math.PI / 2 + index / Math.max(3, total) * Math.PI * 2;
-      const left = 50 + Math.cos(angle) * 40;
-      const top = 50 + Math.sin(angle) * 40;
+      const angle = (-150 + (total <= 1 ? 60 : index * 120 / (total - 1))) * Math.PI / 180;
+      const radius = Math.min(310, window.innerHeight * .29);
+      const left = 50 + Math.cos(angle) * radius / window.innerWidth * 100;
+      const top = 52 + Math.sin(angle) * radius / window.innerHeight * 100;
       const node = document.createElement('div');
       node.className = 'summon-avatar-slot';
       node.dataset.login = key;
       node.style.left = `${left}%`;
       node.style.top = `${top}%`;
-      node.innerHTML = `${imageTag(user)}<span>${escapeHtml(user.display_name || user.login)}</span>`;
+      node.innerHTML = `${imageTag(user)}<span>${escapeHtml(user.display_name || user.login)}</span><b class="summon-plus">+1</b>`;
       slots.append(node);
+      known.add(key);
       if (motion) {
         const side = index % 2 ? 1 : -1;
         motion.set(node, { opacity: 0, x: side * 850, y: 130, scale: .25, rotation: side * 22 });
         motion.timeline()
           .to(node, { opacity: .8, x: side * 330, y: -120, scale: .78, rotation: side * 9, duration: .42, ease: 'sine.out' })
-          .to(node, { opacity: 1, x: 0, y: 0, scale: 1, rotation: 0, duration: .5, ease: 'back.out(1.8)' });
+          .to(node, { opacity: 1, x: 0, y: 0, scaleX: 1.14, scaleY: .86, rotation: 0, duration: .18, ease: 'back.out(1.8)' })
+          .to(node, { scaleX: 1, scaleY: 1, duration: .18, ease: 'elastic.out(1,.35)' });
+        motion.fromTo(node.querySelector('.summon-plus'), { opacity: 0, y: 10, scale: .35 }, { opacity: 1, y: -16, scale: 1.25, duration: .32, delay: .58, ease: 'back.out(2)', onComplete: () => motion.to(node.querySelector('.summon-plus'), { opacity: 0, y: -35, duration: .3 }) });
       }
       sound.chime();
-      particles.burst(window.innerWidth * left / 100, window.innerHeight * top / 100, 'spark', 20);
+      particles.burst(window.innerWidth * left / 100, window.innerHeight * top / 100, 'spark', 20, '#3ee6ff');
+      const combo = byId('summon-combo-display');
+      if (combo) { combo.textContent = known.size === 1 ? '+1' : `${known.size}x ${known.size >= 3 ? 'SUMMONED!' : 'COMBO'}`; combo.classList.add('is-visible'); if (motion) motion.fromTo(combo, { scaleX: .72, scaleY: 1.32 }, { scaleX: 1, scaleY: 1, duration: .42, ease: 'elastic.out(1,.4)', overwrite: true }); }
     });
+    if (joiners.length) safeTween(byId('summoning-circle'), { filter: `drop-shadow(0 0 ${20 + joiners.length * 8}px #3ee6ff) drop-shadow(0 0 ${35 + joiners.length * 14}px #f5c451)`, duration: .45 });
+    if (motion && joiners.length) { motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core']); const speed = Math.max(6, 50 / joiners.length); motion.to('#rune-ring-a', { rotation: 360, duration: speed, repeat: -1, ease: 'none' }); motion.to('#sigil-hex', { rotation: 360, duration: Math.max(5, speed * .55), repeat: -1, ease: 'none' }); motion.to('#sigil-triangle', { rotation: -360, duration: Math.max(5, speed * .72), repeat: -1, ease: 'none' }); motion.to('#sigil-core', { scale: 1.12, duration: Math.max(.35, 1.2 / joiners.length), yoyo: true, repeat: -1, ease: 'sine.inOut' }); }
     if (needed === 0 && !slots.dataset.threshold) {
       slots.dataset.threshold = '1';
+      hitStopImpact('#f5c451');
       sound.whoosh();
+      showCallout('SUMMONED!', '#f5c451');
+      particles.burst(window.innerWidth / 2, window.innerHeight * .7, 'coin', 36);
       safeTween(byId('summon-pillar'), { opacity: .82, scaleY: 1, duration: .8, ease: 'expo.out' });
       safeTween(byId('summoning-circle'), { filter: 'drop-shadow(0 0 45px #fff3b9) drop-shadow(0 0 90px #f5c451)', duration: .45, yoyo: true, repeat: 1 });
       safeTween(byId('flash'), { opacity: .52, duration: .12, yoyo: true, repeat: 1 });
@@ -521,21 +560,29 @@
     }
   }
 
+  function showCallout(text, color = '#f5c451') {
+    const scene = sceneLayer.firstElementChild;
+    if (!scene) return;
+    const node = document.createElement('div');
+    node.className = 'impact-callout'; node.textContent = text; node.style.setProperty('--callout-color', color); scene.append(node);
+    if (motion) motion.fromTo(node, { opacity: 0, scale: .25, rotationX: -42, y: 60 }, { opacity: 1, scale: 1, rotationX: 0, y: 0, duration: .5, ease: 'back.out(2.4)', onComplete: () => motion.to(node, { opacity: 0, y: -70, scale: 1.08, duration: .45, delay: 1.05, onComplete: () => node.remove() }) });
+    else setTimeout(() => node.remove(), 1600);
+  }
+
   function renderSummon(data, scene) {
     setSceneMarkup('summon-scene', summonMarkup());
     if (motion) {
       const timeline = motion.timeline();
       timeline.fromTo(byId('summoning-circle'), { y: 420, scale: .72, opacity: 0, rotation: -5 }, { y: 0, scale: 1, opacity: 1, rotation: 0, duration: 1.35, ease: 'back.out(1.35)' }, 0)
-        .to('#pentagram', { strokeDashoffset: 0, duration: 2.2, ease: 'power2.out' }, .55);
+        .fromTo('.sigil-geometry', { opacity: 0, scale: .7 }, { opacity: .82, scale: 1, duration: 1, stagger: .16, ease: 'back.out(1.5)' }, .4);
       motion.to('#rune-ring-a', { rotation: 360, duration: 50, repeat: -1, ease: 'none' });
-      motion.to('#rune-ring-b', { rotation: -360, duration: 36, repeat: -1, ease: 'none' });
       byId('summon-countdown').style.strokeDasharray = '2123.7';
       motion.to('#summon-countdown', { strokeDashoffset: 2130, duration: Math.max(.2, (new Date(data.endsAt || Date.now() + 20000).getTime() - Date.now()) / 1000), ease: 'none' });
     }
     sound.whoosh();
     updateSummon(data);
     scene.cleanups.push(() => {
-      if (motion) motion.killTweensOf(['#rune-ring-a', '#rune-ring-b', '#summoning-circle', '#pentagram', '#summon-countdown']);
+      if (motion) motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core', '#summoning-circle', '#summon-countdown']);
     });
   }
 
@@ -600,6 +647,8 @@
   }
 
   function renderVote(data, scene) {
+    currentVoteLeader = null;
+    lastCountdownSecond = null;
     const titles = data.titles || [];
     const scrolls = titles.slice(0, 3).map((title, index) => `<article class="vote-scroll" data-index="${index}"><div class="vote-number">${index + 1}</div><div class="vote-howto">type ${index + 1} in chat</div><div class="vote-title">${escapeHtml(title)}</div><div class="vote-count" data-count="${index}">0 witnesses</div><div class="vote-bar-track"><div class="vote-bar-fill" data-bar="${index}"></div></div><div class="vote-percent" data-percent="${index}">0%</div></article>`).join('');
     setSceneMarkup('vote-scene', `<div class="scene-title vote-heading">THE PEOPLE CHOOSE</div><div class="vote-question">Choose the name that shall be written into canon</div><div class="scroll-row">${scrolls}</div>${makeCountdown('vote-clock-progress', '⌛')}`);
@@ -618,6 +667,9 @@
     const normalized = [0, 1, 2].map((index) => Math.max(0, Number(counts[index]) || 0));
     const total = normalized.reduce((sum, value) => sum + value, 0);
     const maximum = Math.max(...normalized);
+    const leader = maximum ? normalized.indexOf(maximum) : null;
+    if (leader !== null && currentVoteLeader !== null && leader !== currentVoteLeader) { showCallout('TAKES THE LEAD!', '#3ee6ff'); sound.chime(); particles.burst(window.innerWidth / 2, window.innerHeight * .5, 'spark', 24, '#3ee6ff'); }
+    currentVoteLeader = leader;
     normalized.forEach((count, index) => {
       const bar = sceneLayer.querySelector(`[data-bar="${index}"]`);
       const countNode = sceneLayer.querySelector(`[data-count="${index}"]`);
@@ -637,113 +689,71 @@
   }
 
   function renderCanonized(entry, scene, complete) {
-    const winningTitle = entry.title || 'A Moment Remembered';
-    const losers = lastTitles.filter((title) => title !== winningTitle).slice(0, 2);
+    const title = entry.title || 'A Moment Remembered';
     const witnesses = entry.witnesses || [];
-    const clip = entry.clip;
-    const thumbnail = clip?.thumbnail_url;
+    const count = witnesses.length;
+    const rarity = count >= 10 ? 'legendary' : count >= 7 ? 'epic' : count >= 4 ? 'rare' : 'common';
+    const rarityName = rarity[0].toUpperCase() + rarity.slice(1);
+    const rarityColor = { common: '#c9cdd6', rare: '#3ee6ff', epic: '#ff3ea5', legendary: '#f5c451' }[rarity];
+    const witnessMarkup = witnesses.slice(0, 10).map((user) => `<div class="card-witness">${imageTag(user)}<span>${escapeHtml(user.display_name || user.login || 'witness')}</span></div>`).join('');
+    const sigil = escapeHtml(entry.sigil || '?');
+    const loreNumber = Number(entry.n) || 1;
     const story = entry.story || 'A moment became legend, and the community carried it into the archive.';
-    const leftTitles = losers.map((title, index) => `<div class="lost-scroll ${index ? 'right' : 'left'}">${escapeHtml(title)}</div>`).join('');
-    const witnessMarkup = witnesses.map((user) => `<div class="witness">${imageTag(user)}<span>${escapeHtml(user.display_name || user.login)}</span></div>`).join('');
-    const clipMarkup = thumbnail
-      ? `<img class="clip-thumbnail" src="${escapeHtml(thumbnail)}" alt="Preserved stream moment"><div class="preserved" style="opacity:0">MOMENT<br>PRESERVED</div>`
-      : `<div class="preserved">MOMENT<br>PRESERVED</div>`;
-    const canonPages = `<div class="tome-page left canon-page-left"><span class="canon-sigil">${escapeHtml(entry.sigil || '✧')}</span><h1 class="canon-title" id="canon-title">${escapeHtml(randomRunes(Math.max(12, winningTitle.length)))}</h1><p class="canon-story" id="canon-story">${escapeHtml(story)}</p><p class="canon-explainer">${escapeHtml(entry.explainer || '')}</p><div class="canon-stamp" id="canon-stamp">CANONIZED · LORE #${Number(entry.n) || 1}</div></div><div class="tome-page right canon-page-right"><div class="wax-frame">${clipMarkup}</div><div class="witness-title">WITNESSES</div><div class="witness-row" id="witness-row">${witnessMarkup}</div></div>`;
-    const html = `${leftTitles}${tomeMarkup(canonPages)}<div class="canon-scene-title scene-title">THE MOMENT IS REMEMBERED</div>`;
-    setSceneMarkup('canon-scene', html);
-    const tome = byId('tome-wrap');
-    const cover = byId('tome-cover');
-    const titleNode = byId('canon-title');
-    const storyNode = byId('canon-story');
-    const frame = sceneLayer.querySelector('.wax-frame');
-    const image = sceneLayer.querySelector('.clip-thumbnail');
-    if (image) image.addEventListener('error', () => {
-      image.style.opacity = '0';
-      const fallback = frame.querySelector('.preserved');
-      if (fallback) fallback.style.opacity = '1';
-    }, { once: true });
-    safeTween(byId('vignette'), { opacity: .82, duration: .7 });
-    safeTween(byId('ray-field'), { opacity: .82, duration: 1.2 });
-    safeTween(byId('flash'), { opacity: .96, duration: .12, yoyo: true, repeat: 1 });
-    sound.boom();
-    particles.burst(window.innerWidth / 2, window.innerHeight * .48, 'spark', 120);
+    setSceneMarkup('canon-scene', `<div class="card-rays" id="card-rays"></div><div class="card-pack" id="card-pack"><span>${sigil}</span></div><div class="impact-callout rarity-callout" id="rarity-callout">${rarityName.toUpperCase()} LORE!</div><div class="card-wrap" id="card-wrap"><div class="card-shell" id="card-shell"><div class="card-face card-back"><span class="back-sigil">${sigil}</span><b>THE LORE ARCHIVE</b><small>WITNESSED. REMEMBERED. CANON.</small></div><article class="lore-card ${rarity}" style="--rarity-color:${rarityColor}"><div class="card-edge"></div><header class="card-meta"><span>LORE #${loreNumber}</span><time>${escapeHtml(entry.date || (entry.born_at ? new Date(entry.born_at).toLocaleDateString() : new Date().toLocaleDateString()))}</time></header><div class="card-art"><div class="nebula"></div><div class="sigil-art">${sigil}</div><div class="art-caption">A MOMENT PRESERVED</div></div><div class="card-ribbon"><h1 id="card-title">${escapeHtml(randomRunes(Math.max(12, title.length)))}</h1></div><div class="card-copy"><p class="card-story" id="card-story">${escapeHtml(story)}</p><p class="card-explainer">${escapeHtml(entry.explainer || '')}</p></div><div class="card-witness-title">WITNESSES ${count}</div><div class="card-witnesses">${witnessMarkup}</div><div class="card-stamp" id="canon-stamp">CANONIZED</div><div class="card-foil"></div><footer class="card-footer"><span>${rarityName.toUpperCase()}</span><span>THE LORE OF ${escapeHtml(String(entry.channel || 'THIS CHANNEL').toUpperCase())}</span></footer></article></div></div>`);
+    sound.riser();
+    safeTween(byId('ray-field'), { opacity: .8, duration: .6 });
+    safeTween(byId('vignette'), { opacity: .84, duration: .6 });
+    const pack = byId('card-pack');
+    const wrap = byId('card-wrap');
+    const color = rarityColor;
     if (motion) {
-      motion.to(sceneLayer, { x: 8, y: -5, duration: .045, yoyo: true, repeat: 8 });
-      motion.set(tome, { y: -450, scale: .82, opacity: 0 });
-      motion.set(cover, { rotateY: 0 });
-      motion.set('.lost-scroll', { opacity: 1, scale: 1, rotation: 0 });
-      motion.set(titleNode, { opacity: 0, scale: .92, filter: 'blur(8px)' });
-      motion.set(storyNode, { opacity: 0, scale: .96, filter: 'blur(12px)', maskSize: '0% 0%' });
-      motion.set('.canon-sigil', { opacity: 0, scale: .4, y: 30 });
-      motion.set('.wax-frame', { opacity: 0, scale: .75, rotation: 5 });
-      motion.set('.witness', { opacity: 0, y: 130, scale: .4 });
-      motion.set('#canon-stamp', { opacity: 0, scale: 3, rotation: -12 });
+      motion.set(pack, { y: -window.innerHeight * .8, rotation: 0, scale: .45, opacity: 0 });
+      motion.set(wrap, { y: 100, scale: .38, rotationY: 180, opacity: 0 });
+      motion.set('#card-story', { opacity: 0, y: 15, filter: 'blur(8px)' });
+      motion.set('.card-witness', { opacity: 0, y: 28, scale: .5 });
+      motion.set('#canon-stamp', { opacity: 0, scale: 2.7, rotation: -13 });
       const timeline = motion.timeline({ onComplete: () => {
         if (sceneHoldMode) return;
+        collectionCount += 1;
         const chip = byId('corner-chip');
-        chip.innerHTML = `<span class="chip-sigil">${escapeHtml(entry.sigil || '✧')}</span><span>LORE #${Number(entry.n) || 1}</span>`;
+        chip.innerHTML = `<span class="chip-sigil">${sigil}</span><span>LORE #${loreNumber}</span><b class="chip-count">+1</b>`;
+        motion.fromTo(chip, { opacity: 0, y: -20, scale: .75 }, { opacity: 1, y: 0, scale: 1, duration: .55, ease: 'back.out(1.8)' });
         if (chipHideTimer) clearTimeout(chipHideTimer);
-        motion.fromTo(chip, { opacity: 0, y: -18, scale: .9 }, { opacity: 1, y: 0, scale: 1, duration: .55, ease: 'back.out(1.7)' });
-        chipHideTimer = setTimeout(() => safeTween(chip, { opacity: 0, y: -12, duration: .6 }), 30_000);
-        safeTween(byId('vignette'), { opacity: 0, duration: .8 });
-        safeTween(byId('ray-field'), { opacity: 0, duration: .8 });
+        chipHideTimer = setTimeout(() => safeTween(chip, { opacity: 0, y: -12, duration: .6 }), 30000);
+        safeTween(byId('vignette'), { opacity: 0, duration: .5 }); safeTween(byId('ray-field'), { opacity: 0, duration: .5 });
         complete();
-      } });
-      timeline.call(() => {
-        particles.burst(window.innerWidth * .25, window.innerHeight * .48, 'ember', 48);
-        particles.burst(window.innerWidth * .75, window.innerHeight * .48, 'ember', 48);
-      }, [], .28)
-      timeline.to('#flash', { opacity: 0, duration: .42 }, .1)
-        .to('.lost-scroll', { opacity: 0, scale: .78, y: 80, filter: 'blur(9px)', duration: .95, stagger: .12, ease: 'power2.in' }, .2)
-        .to(tome, { y: 0, scale: 1, opacity: 1, duration: .9, ease: 'back.out(1.4)' }, .25)
-        .to(cover, { rotateY: -158, duration: .8, ease: 'power3.out', onStart: () => sound.pageFlip() }, .95)
-        .to('.canon-sigil', { opacity: 1, scale: 1, y: 0, duration: .55, ease: 'back.out(2)' }, 1.55)
-        .to(titleNode, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: .5 }, 1.7)
-        .call(() => startScramble(titleNode, winningTitle, 1000), [], 1.75)
-        .to(storyNode, { opacity: 1, scale: 1, filter: 'blur(0px)', maskSize: '220% 220%', duration: 1.25, ease: 'power2.out' }, 1.7)
-        .to('.wax-frame', { opacity: 1, scale: 1, rotation: 0, duration: .75, ease: 'back.out(1.8)' }, 1.75)
-        .to('.witness', { opacity: 1, y: 0, scale: 1, duration: .5, stagger: .08, ease: 'back.out(1.6)' }, 1.55)
-        .call(() => {
-          sound.stamp();
-          particles.burst(window.innerWidth / 2, window.innerHeight * .42, 'ember', 64, '#ff4d4d');
-        }, [], 3.5)
-        .to('#canon-stamp', { opacity: .88, scale: 1, duration: .65, ease: 'back.out(2.2)' }, 3.5)
-        .to(tome, { y: -15, duration: .6, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 3.7)
-        .to({}, { duration: 4.05 }, 4.4);
-      if (!sceneHoldMode) {
-        timeline.to(cover, { rotateY: 0, duration: .45, ease: 'power2.in', onStart: () => sound.pageFlip() }, 8.15)
-          .to(tome, { x: 760, y: -420, scale: .12, opacity: 0, duration: .65, ease: 'power3.in' }, 8.4);
-      }
-    } else setTimeout(complete, 9000);
-    scene.cleanups.push(() => {
-      safeTween(byId('vignette'), { opacity: 0, duration: .25 });
-      safeTween(byId('ray-field'), { opacity: 0, duration: .25 });
-    });
+      }});
+      timeline.to(pack, { y: window.innerHeight * .48, opacity: 1, scale: 1.08, duration: 1.18, ease: 'bounce.out' }, 0)
+        .to(pack, { rotation: 4, duration: .07, ease: 'none' }, 1.18)
+        .to(pack, { rotation: -6, duration: .07, ease: 'none' })
+        .to(pack, { rotation: 8, duration: .07, ease: 'none' })
+        .to(pack, { rotation: -12, duration: .07, ease: 'none' })
+        .to(pack, { rotation: 17, duration: .08, ease: 'none' })
+        .to(pack, { opacity: 0, scale: 1.9, duration: .22, onStart: () => { hitStopImpact(color); sound.boom(); particles.burst(window.innerWidth / 2, window.innerHeight / 2, 'spark', 100, color); particles.burst(window.innerWidth / 2, window.innerHeight / 2, 'confetti', 90); particles.burst(window.innerWidth / 2, window.innerHeight / 2, 'coin', 28); } }, 1.9)
+        .to(wrap, { y: 0, scale: 1, rotationY: 0, opacity: 1, duration: .9, ease: 'back.out(1.6)' }, 2.05)
+        .call(() => { startScramble(byId('card-title'), title, 1050); sound.pageFlip(); }, [], 2.55)
+        .to('#card-story', { opacity: 1, y: 0, filter: 'blur(0px)', duration: .7 }, 3.05)
+        .to('.card-witness', { opacity: 1, y: 0, scale: 1, duration: .45, stagger: .055, ease: 'back.out(1.7)' }, 3.25)
+        .to('#rarity-callout', { opacity: 1, scale: 1, rotationX: 0, duration: .55, ease: 'back.out(2)' }, 3.25)
+        .to('#rarity-callout', { opacity: 0, y: -40, duration: .35 }, 4.45)
+        .to('#canon-stamp', { opacity: .92, scale: 1, duration: .55, ease: 'back.out(2.5)', onStart: () => { sound.stamp(); particles.burst(window.innerWidth / 2, window.innerHeight * .5, 'ember', 34, '#ff4d4d'); particles.burst(window.innerWidth / 2, window.innerHeight * .5, 'spark', 22, '#ff4d4d'); } }, 4.65)
+        .to(wrap, { rotationY: 5, duration: 2, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 5.3)
+        .to({}, { duration: sceneHoldMode ? 6 : 2.25 }, 7.1);
+      if (!sceneHoldMode) timeline.to(wrap, { x: window.innerWidth * .36, y: -window.innerHeight * .34, scale: .16, opacity: 0, duration: .8, ease: 'power3.in' }, 9.35);
+    } else setTimeout(complete, 10000);
+    scene.cleanups.push(() => { safeTween(byId('vignette'), { opacity: 0, duration: .25 }); safeTween(byId('ray-field'), { opacity: 0, duration: .25 }); });
   }
 
   function renderInitiation(data, scene, complete) {
     const user = data.user || {};
     const lore = data.lore || {};
-    const candles = Array.from({ length: 8 }, (_, index) => {
-      const angle = (index / 8) * Math.PI * 2 - Math.PI / 2;
-      return `<i class="candle" style="left:${50 + Math.cos(angle) * 45}%;top:${50 + Math.sin(angle) * 45}%;animation-delay:${index * -.13}s"></i>`;
-    }).join('');
-    setSceneMarkup('initiation-scene', `<div class="scene-backwash"></div><div class="scene-title initiation-title">A NEW WITNESS ENTERS</div><div class="candle-ring">${candles}</div>${imageTag(user, 'initiation-avatar')}<article class="initiation-scroll"><h2>@${escapeHtml(user.display_name || user.login || 'witness')} HAS BEEN INITIATED</h2><h3>${escapeHtml(lore.title || 'The Living Archive')}</h3><p>${escapeHtml(lore.explainer || '')}</p><div class="initiate-number">INITIATE #${Number(data.initiateNumber) || 1}</div></article>`);
-    const flameNodes = sceneLayer.querySelectorAll('.candle');
-    if (motion) {
-      const timeline = motion.timeline();
-      timeline.fromTo('.initiation-title', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: .8 }, 0)
-        .fromTo('.initiation-avatar', { x: -150, opacity: 0, scale: .4 }, { x: 0, opacity: 1, scale: 1, duration: 1, ease: 'back.out(1.6)' }, .1)
-        .fromTo('.candle', { opacity: 0, scale: .2 }, { opacity: 1, scale: 1, duration: .7, stagger: .08, ease: 'back.out(2)' }, .35)
-        .to('.initiation-scroll', { scaleY: 1, duration: 1.1, ease: 'back.out(1.4)' }, .45);
-    }
+    setSceneMarkup('initiation-scene', `<div class="achievement-pill" id="achievement-pill"><div class="achievement-icon">${imageTag(user)}<span class="candle-icon">🕯</span></div><div class="achievement-copy"><b>ACHIEVEMENT UNLOCKED</b><strong>@${escapeHtml(user.display_name || user.login || 'witness')}: Initiated into ${escapeHtml(lore.title || 'The Living Archive')}</strong><small>+1 LORE KNOWN</small></div><i class="achievement-sheen"></i></div>`);
+    const avatar = sceneLayer.querySelector('.achievement-icon .avatar-orb');
+    if (motion) motion.fromTo('#achievement-pill', { x: 640, opacity: 0, scale: 1.09 }, { x: 0, opacity: 1, scale: 1.4, duration: .65, ease: 'back.out(1.7)' });
     sound.chime();
-    particles.burst(window.innerWidth * .25, window.innerHeight * .5, 'spark', 34);
-    scene.cleanups.push(() => flameNodes.forEach((node) => { node.style.animationPlayState = 'paused'; }));
-    setTimeout(() => {
-      particles.burst(window.innerWidth * .5, window.innerHeight * .55, 'ember', 54);
-      complete();
-    }, 6000);
+    particles.burst(window.innerWidth * .84, window.innerHeight * .84, 'spark', 26, '#f5c451');
+    scene.cleanups.push(() => { if (motion) motion.killTweensOf(avatar); });
+    setTimeout(() => { if (motion) motion.to('#achievement-pill', { x: 760, opacity: 0, duration: .4, onComplete: complete }); else complete(); }, 5000);
   }
 
   function renderTrial(data, scene) {
@@ -769,7 +779,7 @@
   function updateTrialTally(counts = []) {
     [0, 1, 2, 3].forEach((index) => {
       const node = sceneLayer.querySelector(`[data-trial-count="${index}"]`);
-      if (node) node.textContent = String(Math.max(0, Number(counts[index]) || 0));
+      if (node) { const next = String(Math.max(0, Number(counts[index]) || 0)); if (node.textContent !== next && motion) motion.fromTo(node, { scale: .7 }, { scale: 1.35, duration: .18, yoyo: true, repeat: 1, ease: 'back.out(2)' }); node.textContent = next; }
     });
   }
 
@@ -787,20 +797,26 @@
     const users = data.correctUsers || [];
     const leaderboard = data.leaderboard || [];
     const podiumNames = ['first', 'second', 'third'];
-    const podium = leaderboard.slice(0, 3).map((user, index) => `<div class="podium-user ${podiumNames[index]}">${index === 0 ? '<span class="crown">👑</span>' : ''}<strong>${escapeHtml(user.display_name || user.login)}</strong><small>${Number(user.score) || 0} lore points</small></div>`).join('');
+    const podium = leaderboard.slice(0, 3).map((user, index) => `<div class="podium-user ${podiumNames[index]}">${index === 0 ? '<span class="crown">\u{1F451}</span>' : ''}${imageTag(user, 'podium-avatar')}<strong>${escapeHtml(user.display_name || user.login)}</strong><small>${Number(user.score) || 0} lore points</small></div>`).join('');
     const rest = leaderboard.slice(3, 5).map((user, index) => `<span>${index + 4}. ${escapeHtml(user.display_name || user.login)} (${Number(user.score) || 0})</span>`).join('');
     const rain = users.map((user) => imageTag(user)).join('');
-    setSceneMarkup('trial-result-scene', `<div class="trial-banner">⚔ THE LORE TRIALS ⚔</div><div class="trial-grid">${tiles}</div><div class="trial-result-panel"><div class="correct-rain" id="correct-rain">${rain}</div><div class="podium" id="podium">${podium || '<div class="podium-user first">No Loremaster this round</div>'}</div><div class="podium-rest">${rest}</div></div>`);
+    setSceneMarkup('trial-result-scene', `<div class="trial-banner">\u{2694} THE LORE TRIALS \u{2694}</div><div class="trial-question">${escapeHtml(trial.question || 'Which tale belongs to the archive?')}</div><div class="trial-grid">${tiles}</div><div class="trial-result-panel"><div class="correct-rain" id="correct-rain">${rain}</div><div class="podium" id="podium">${podium || '<div class="podium-user first">No Loremaster this round</div>'}</div><div class="podium-rest">${rest}</div></div>`);
     if (motion) {
       motion.fromTo('.trial-banner', { y: -120, opacity: 0 }, { y: 0, opacity: 1, duration: .7, ease: 'back.out(2)' });
-      motion.fromTo('.trial-tile', { opacity: .3, rotationY: 0 }, { rotationY: 360, duration: .8, stagger: .08, ease: 'back.out(1.4)' });
-      motion.fromTo('#correct-rain img', { y: -500, opacity: 0, rotation: -24 }, { y: 0, opacity: 1, rotation: 0, duration: 1, stagger: .12, delay: .45, ease: 'bounce.out' });
+      motion.fromTo('.trial-tile', { rotationY: 0, scale: .92 }, { rotationY: 360, scale: 1, duration: .8, stagger: .08, ease: 'back.out(1.4)' });
+      motion.to('.trial-tile.correct', { scale: 1.08, duration: .4, delay: .8, ease: 'back.out(1.7)' });
+      motion.fromTo('.podium-avatar', { y: -120, opacity: 0, scale: .3 }, { y: 0, opacity: 1, scale: 1, duration: .7, stagger: .15, delay: 1.45, ease: 'bounce.out' });
+      motion.fromTo('#correct-rain .avatar-orb', { y: -500, opacity: 0, rotation: -24 }, { y: 0, opacity: 1, rotation: 0, duration: 1, stagger: .12, delay: .45, ease: 'bounce.out' });
       motion.fromTo('#podium', { y: 100, opacity: 0, scale: .78 }, { y: 0, opacity: 1, scale: 1, duration: .9, delay: 1.3, ease: 'back.out(1.6)' });
       motion.fromTo('.podium-rest', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: .6, delay: 2.1 });
       motion.delayedCall(6.8, complete);
     } else setTimeout(complete, 6800);
+    sound.drumroll();
+    hitStopImpact('#b6ff3e');
+    showCallout('CORRECT!', '#b6ff3e');
     sound.stamp();
     particles.rain(window.innerWidth / 2, -20, 46);
+    particles.burst(window.innerWidth / 2, window.innerHeight * .38, 'confetti', 100);
   }
 
   function routeMessage(event) {
@@ -834,12 +850,12 @@
   }
 
   function demoUser(login, displayName = login) {
-    return { login, display_name: displayName, avatar: `https://api.dicebear.com/9.x/bottts/svg?seed=${encodeURIComponent(login)}` };
+    return { login, display_name: displayName };
   }
 
   function startSingleScene(name) {
     const titles = ['The Bucket That Knew Too Much', 'The Great Reality Audit', 'The Ladder of Unwise Ambition'];
-    const witnesses = [demoUser('maple_mage', 'Maple Mage'), demoUser('bucketbard', 'Bucket Bard'), demoUser('ladderknight', 'Ladder Knight'), demoUser('crabwise', 'Crabwise')];
+    const witnesses = [demoUser('maple_mage', 'Maple Mage'), demoUser('bucketbard', 'Bucket Bard'), demoUser('ladderknight', 'Ladder Knight'), demoUser('crabwise', 'Crabwise'), demoUser('real_or_rune', 'Real or Rune'), demoUser('mosskeeper', 'Moss Keeper'), demoUser('starling', 'Starling'), demoUser('runefox', 'Rune Fox'), demoUser('emberowl', 'Ember Owl'), demoUser('moonlit', 'Moonlit')];
     const entry = {
       id: 'scene-preview', n: 2, title: titles[1], sigil: '🔎',
       story: 'When the impossible happened on screen, the streamer paused to inspect the evidence. Chat asked whether any of it was real, and the question became the community’s answer to every unlikely triumph.',
@@ -912,7 +928,7 @@
         story: 'When the impossible happened on screen, the streamer paused to inspect the evidence. Chat asked whether any of it was real, and the question became the community’s answer to every unlikely triumph.',
         explainer: 'Chat asks this whenever a moment seems too strange to be true.',
         clip: null,
-        witnesses: [demoUser('maple_mage', 'Maple Mage'), demoUser('bucketbard', 'Bucket Bard'), demoUser('ladderknight', 'Ladder Knight'), demoUser('crabwise', 'Crabwise')],
+        witnesses: [demoUser('maple_mage', 'Maple Mage'), demoUser('bucketbard', 'Bucket Bard'), demoUser('ladderknight', 'Ladder Knight'), demoUser('crabwise', 'Crabwise'), demoUser('real_or_rune', 'Real or Rune'), demoUser('mosskeeper', 'Moss Keeper'), demoUser('starling', 'Starling'), demoUser('runefox', 'Rune Fox'), demoUser('emberowl', 'Ember Owl'), demoUser('moonlit', 'Moonlit')],
       } });
       await wait(9700);
       routeMessage({ type: 'initiation', data: { user: demoUser('new_witness', 'New Witness'), lore: { title: titles[1], explainer: 'Chat asks this whenever a moment seems too strange to be true.' }, initiateNumber: 12 } });
