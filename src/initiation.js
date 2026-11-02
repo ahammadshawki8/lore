@@ -33,9 +33,10 @@ export function matchLore(query, entries) {
 function requestedMeaning(text) {
   const value = String(text ?? '').trim();
   const patterns = [
-    /^what\s+does\s+(.+?)\s+mean[?!.]*$/i,
-    /^what\s+is\s+(.+?)[?!.]*$/i,
-    /^what(?:'s|\u2019s)\s+(.+?)[?!.]*$/i,
+    /\bwhat\s+does\s+(.+?)\s+mean\b/i,
+    /\bwhat\s+(?:is|are)\s+(?:this\s+|the\s+)?(.+?)(?:\s+(?:thing|joke|lore|meme|about))*\s*[?!.]*$/i,
+    /\bwhat(?:'s|\u2019s|s)\s+(?:this\s+|the\s+)?(.+?)(?:\s+(?:thing|joke|lore|meme|about))*\s*[?!.]*$/i,
+    /\bwhy\s+(?:does|is)\s+(?:chat|everyone)\s+(?:say(?:ing)?|spam(?:ming)?)\s+(.+?)[?!.]*$/i,
   ];
   for (const pattern of patterns) {
     const match = value.match(pattern);
@@ -70,6 +71,7 @@ export async function startInitiation({
 }) {
   const initiatedUsers = await loadInitiatedUsers(usersPath);
   const seenThisSession = new Set();
+  const lastAsked = new Map();
   const entries = getLore ?? (() => loadLore(lorePath));
   let persistQueue = Promise.resolve();
   const handleMessage = (message) => {
@@ -138,9 +140,13 @@ export async function startInitiation({
       return;
     }
 
-    if (!isFirst) return;
     const query = requestedMeaning(message.text);
     if (!query) return;
+    // Newcomers are initiated on their first question; anyone not yet initiated can ask, at most once a minute.
+    const now = Date.now();
+    if (!isFirst && initiatedUsers.has(login)) return;
+    if ((lastAsked.get(login) ?? 0) > now - 60000) return;
+    lastAsked.set(login, now);
     const lore = matchLore(query, await Promise.resolve(entries()));
     if (lore) await initiate(message, lore);
   }

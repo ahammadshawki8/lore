@@ -26,7 +26,10 @@
   let nextMomentAt = 45;
   let shake = 0;
 
-  const obstacleKinds = ['crate', 'spikes', 'ladder', 'crab'];
+  const obstacleKinds = ['crate', 'spikes', 'crab', 'crate', 'spikes'];
+  const GRAVITY = 1700;
+  const JUMP_VELOCITY = -1000;
+  const AIR_TIME = -2 * JUMP_VELOCITY / GRAVITY;
   const coinKinds = ['coin', 'coin', 'gem'];
   const randomFrom = (seed, max) => ((Math.sin(seed * 12.9898) * 43758.5453) % 1 + 1) % 1 * max;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -48,7 +51,7 @@
   function fillAhead() {
     while (nextObstacleX < worldX + 2700) {
       addObstacle(nextObstacleX);
-      nextObstacleX += 430 + randomFrom(nextObstacleX, 230);
+      nextObstacleX += 560 + randomFrom(nextObstacleX, 260);
     }
     while (nextPickupX < worldX + 2700) {
       const kind = coinKinds[Math.floor(randomFrom(nextPickupX, coinKinds.length))];
@@ -83,6 +86,10 @@
       if (elapsed - moment.start >= moment.duration) {
         moment = null;
         worldX += 520;
+        for (let i = obstacles.length - 1; i >= 0; i -= 1) {
+          if (obstacles[i].x > worldX - 200 && obstacles[i].x < worldX + 420) obstacles.splice(i, 1);
+        }
+        nextObstacleX = Math.max(nextObstacleX, worldX + 700);
         hero.x = worldX;
         hero.y = GROUND;
         hero.vy = 0;
@@ -105,27 +112,15 @@
     hero.blink = Math.max(0, hero.blink - dt);
 
     const next = nearestObstacle();
-    if (next && next.kind !== 'ladder' && !hero.jumping && !hero.climbing && next.x - worldX < 165 && next.x - worldX > 40) {
+    const takeoff = speed * AIR_TIME / 2;
+    if (next && !hero.jumping && next.x - worldX < takeoff && next.x - worldX > 0) {
       hero.jumping = true;
-      hero.vy = -790;
+      hero.vy = JUMP_VELOCITY;
       hero.squash = 1.18;
       puff(HERO_X - 10, GROUND, 5);
     }
-    if (next?.kind === 'ladder' && !hero.climbing && !hero.jumping && next.x - worldX < 42 && next.x - worldX > -12) {
-      hero.climbing = true;
-      hero.climb = 0;
-    }
-    if (hero.climbing) {
-      hero.climb += dt;
-      hero.y = GROUND - Math.min(185, hero.climb * 220);
-      if (hero.climb >= .92) {
-        hero.climbing = false;
-        hero.jumping = true;
-        hero.vy = -420;
-        hero.y = GROUND - 185;
-      }
-    } else if (hero.jumping) {
-      hero.vy += 1900 * dt;
+    if (hero.jumping) {
+      hero.vy += GRAVITY * dt;
       hero.y += hero.vy * dt;
       if (hero.y >= GROUND) {
         hero.y = GROUND;
