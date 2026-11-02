@@ -16,7 +16,7 @@ CANONIZED -> IDLE. Requests arriving while busy are queued (never two rituals at
 - CANONIZED: create entry { id, n, title, story, explainer, sigil, phrase, clip,
   witnesses:[{login, display_name, avatar}] (summoners + voters, deduped, max 12),
   born_at, uses:0, initiates:0, trial }, save to data/lore.json (create folder if missing),
-  broadcast('canonized', entry), sendChat("📜 LORE #n CANONIZED: <title> — <clip url>").
+  broadcast('canonized', entry), sendChat("📜 LORE #n CANONIZED: <title>, <clip url>").
 
 2) src/lorekeeper.js: draft(context) returns { titles[3], story, explainer, sigil, phrase,
 trial:{question} }. If OPENAI_API_KEY is set, call OpenAI (official openai package, a fast

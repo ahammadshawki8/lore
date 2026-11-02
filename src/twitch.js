@@ -87,6 +87,7 @@ function handleNotification(payload) {
     badges: (message.badges ?? []).map((badge) => ({ set_id: badge.set_id, id: badge.id, info: badge.info })),
     color: message.color || null,
     ts: message.message_timestamp,
+    is_first_message: Boolean(message.is_first_message),
   };
   chatEvents.emit('message', normalized);
 }

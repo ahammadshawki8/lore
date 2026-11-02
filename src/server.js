@@ -5,8 +5,10 @@ import { randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { chatEvents, connectTwitch, createClip, getStream, getUsers, sendChat, twitchState } from './twitch.js';
 import { startDetector } from './detector.js';
+import { startInitiation } from './initiation.js';
 import { startRitualEngine } from './ritual.js';
 import { saveLore } from './storage.js';
+import { startTrials } from './trials.js';
 
 const app = express();
 const server = createServer(app);
@@ -19,6 +21,7 @@ app.get('/api/health', (_request, response) => {
   response.json({ connected: twitchState.connected, login: twitchState.login });
 });
 
+let trialEngine;
 const ritual = await startRitualEngine({
   chatEvents,
   broadcast,
@@ -27,6 +30,24 @@ const ritual = await startRitualEngine({
   getUsers,
   getStream,
   streamer: () => twitchState.login,
+  onPhaseChange: ({ phase }) => {
+    if (phase !== 'IDLE') trialEngine?.cancelForRitual();
+  },
+});
+const initiation = await startInitiation({
+  chatEvents,
+  broadcast,
+  sendChat,
+  getUsers,
+  getLore: ritual.getLore,
+});
+trialEngine = await startTrials({
+  chatEvents,
+  broadcast,
+  sendChat,
+  getUsers,
+  getLore: ritual.getLore,
+  getRitualState: ritual.getState,
 });
 const stopDetector = startDetector({
   chatEvents,
@@ -89,6 +110,7 @@ app.route('/api/config')
   });
 
 app.get('/api/lore', (_request, response) => response.json(ritual.getLore()));
+app.get('/api/loremasters', (_request, response) => response.json(trialEngine.getLeaderboard()));
 
 server.on('upgrade', (request, socket, head) => {
   if (request.url !== '/ws') {
@@ -110,7 +132,12 @@ chatEvents.on('message', (message) => {
   broadcast('chat', message);
 });
 
-server.on('close', stopDetector);
+server.on('close', () => {
+  stopDetector();
+  initiation.stop();
+  trialEngine.stop();
+  ritual.stop();
+});
 
 server.listen(port, async () => {
   console.log(`[server] Listening on http://localhost:${port}`);

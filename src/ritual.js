@@ -15,6 +15,7 @@ export async function startRitualEngine({
   loreDraft = draft,
   dataPath = 'data/lore.json',
   config: initialConfig = {},
+  onPhaseChange = () => {},
 }) {
   const config = { ...DEFAULT_CONFIG, ...initialConfig };
   let entries = await loadLore(dataPath);
@@ -67,6 +68,7 @@ export async function startRitualEngine({
 
   function setPhase(next) {
     phase = next;
+    onPhaseChange({ phase });
   }
 
   function broadcastSummon() {
@@ -216,7 +218,7 @@ export async function startRitualEngine({
     broadcast('canonized', entry);
     try {
       const clipUrl = clip?.url ?? '';
-      await sendChat(`\u{1F4DC} LORE #${n} CANONIZED: ${title} \u2014 ${clipUrl}`);
+      await sendChat(`\u{1F4DC} LORE #${n} CANONIZED: ${title} - ${clipUrl}`);
     } catch (error) {
       console.error(`[ritual] Lore was saved, but the canon announcement failed: ${error.message}`);
     }

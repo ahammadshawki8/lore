@@ -1,6 +1,8 @@
-Next step: the public Codex archive page and the streamer control panel.
+Project rules (also in AGENTS.md): the project is named LORE (never "Lore Codex"), and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
 
-1) public/codex.html (+ css/js): "THE CODEX OF <CHANNEL>" (channel login from
+Next step: the public LORE archive page (public/codex.html, keep that filename) and the streamer control panel.
+
+1) public/codex.html (+ css/js): "THE LORE OF <CHANNEL>" (channel login from
 /api/health). Same fonts/palette as the overlay, GSAP 3.12.5 from cdnjs.
 - Full-screen canvas night sky: twinkling background stars, slow parallax drift with the
   mouse, faint nebula gradients.

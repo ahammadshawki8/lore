@@ -1,6 +1,6 @@
-# Lore Codex
+# LORE
 
-Lore Codex turns memorable Twitch chat moments into community canon. This first scaffold provides the Twitch EventSub connection and a small web server.
+LORE turns memorable Twitch chat moments into community canon. This foundation provides the Twitch EventSub connection and a small web server.
 
 ## Setup
 

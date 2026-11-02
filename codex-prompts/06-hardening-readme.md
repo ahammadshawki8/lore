@@ -1,3 +1,5 @@
+Project rules (also in AGENTS.md): the project is named LORE (never "Lore Codex"), and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
+
 Final step: hardening and documentation.
 
 1) Review the whole project for bugs and races: ritual queueing, trial vs ritual conflicts,
@@ -7,7 +9,8 @@ when the token is missing. Fix what you find. Run scripts/smoke.js again and mak
 passes.
 
 2) README.md, written for hackathon judges:
-- Title + tagline "Every community has lore. Now chat gets to write it."
+- Title "LORE" + tagline "Every community has lore. Now chat gets to write it."
+- Also do a final sweep: rename any remaining "Lore Codex" to "LORE" (package.json name "lore", page titles, logs, README) and replace every em dash character in the repo with normal punctuation.
 - What it is (3 sentences), then "The Ritual" step by step (summon, decipher, vote,
   canonize, initiate, trials, codex)
 - Screenshot/GIF placeholders (docs/ folder)

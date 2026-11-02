@@ -1,3 +1,5 @@
+Project rules (also in AGENTS.md): the project is named LORE (never "Lore Codex"), and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
+
 Next step: the OBS overlay. This is the most important part of the project: judges score
 "fun to watch", so it must look like a AAA game cinematic, not a web page. Take your time
 and make it stunning.
@@ -35,7 +37,7 @@ SCENES:
 3. decipher: a 3D CSS tome (cover with embossed sigil, leather texture via gradients,
    thick page block) drops in with perspective and the cover swings open (rotateY) with a
    page-flip sound. On the pages, rows of random runes continuously scramble (glowing
-   purple). Caption "THE CODEX DECIPHERS...".
+   purple). Caption "THE ARCHIVE DECIPHERS...".
 4. vote_open {titles, endsAt} / vote_tally {counts}: three parchment scrolls unroll
    (scaleY from rolled ends) side by side, labeled "TYPE 1", "TYPE 2", "TYPE 3" in big gold
    numerals, each with the title text. Under each, a liquid-gold bar rises with the live

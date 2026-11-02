@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { unlink } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
 import { startDetector } from '../src/detector.js';
+import { startInitiation } from '../src/initiation.js';
 import { startRitualEngine } from '../src/ritual.js';
+import { startTrials } from '../src/trials.js';
 
 const dataPath = 'data/lore.smoke.json';
+const initiatedPath = 'data/initiation-users.smoke.json';
+const leaderboardPath = 'data/loremasters.smoke.json';
 const events = [];
 const sent = [];
 const chatEvents = new EventEmitter();
@@ -21,6 +25,26 @@ const engine = await startRitualEngine({
   getUsers: async (logins) => Object.fromEntries(logins.map((login) => [login, `https://example.test/${login}.png`])),
   dataPath,
   config: { summonThreshold: 3, summonSeconds: 2, voteSeconds: 0.5 },
+});
+const initiation = await startInitiation({
+  chatEvents,
+  broadcast,
+  sendChat: async (text) => sent.push(text),
+  getUsers: async (logins) => Object.fromEntries(logins.map((login) => [login, `https://example.test/${login}.png`])),
+  getLore: engine.getLore,
+  lorePath: dataPath,
+  usersPath: initiatedPath,
+});
+const trials = await startTrials({
+  chatEvents,
+  broadcast,
+  sendChat: async (text) => sent.push(text),
+  getUsers: async (logins) => Object.fromEntries(logins.map((login) => [login, `https://example.test/${login}.png`])),
+  getLore: engine.getLore,
+  getRitualState: engine.getState,
+  leaderboardPath,
+  trialSeconds: 0.5,
+  random: () => 0.25,
 });
 const stopDetector = startDetector({
   chatEvents,
@@ -62,6 +86,22 @@ function waitFor(type, timeoutMs = 5000) {
   });
 }
 
+function waitForCount(type, count, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const poll = setInterval(() => {
+      const matching = events.filter((event) => event.type === type);
+      if (matching.length >= count) {
+        clearInterval(poll);
+        resolve(matching);
+      } else if (Date.now() - started >= timeoutMs) {
+        clearInterval(poll);
+        reject(new Error(`Timed out waiting for ${count} ${type} events`));
+      }
+    }, 10);
+  });
+}
+
 try {
   inject('lore_fan_1', 'The dragon chair!');
   inject('lore_fan_2', 'The dragon chair!');
@@ -79,15 +119,51 @@ try {
   assert.equal(canonized.data.n, 1);
   assert.equal(engine.getLore().length, 1);
   assert.ok(sent.some((message) => message.includes('CANONIZED')));
-  const { readFile } = await import('node:fs/promises');
   const saved = JSON.parse(await readFile(dataPath, 'utf8'));
   assert.equal(saved.length, 1);
   assert.equal(saved[0].id, canonized.data.id);
-  console.log('[smoke] Ritual completed, vote tie selected title 1, and lore entry was saved.');
+
+  inject('init_fan', '!lore dragon chair');
+  const firstInitiation = await waitFor('initiation');
+  assert.equal(firstInitiation.data.lore.id, canonized.data.id);
+  assert.equal(firstInitiation.data.initiateNumber, 1);
+  assert.equal(engine.getLore()[0].initiates, 1);
+  assert.ok(sent.some((message) => message.includes('@init_fan')));
+
+  inject('auto_reader', 'what is the dragon chair?');
+  const initiationEvents = await waitForCount('initiation', 2);
+  assert.equal(initiationEvents[1].data.initiateNumber, 2);
+  assert.deepEqual(JSON.parse(await readFile(initiatedPath, 'utf8')).users, ['auto_reader', 'init_fan']);
+
+  const idleStarted = Date.now();
+  while (engine.getState().phase !== 'IDLE' && Date.now() - idleStarted < 5000) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.equal(engine.getState().phase, 'IDLE');
+  inject('streamer_host', '!trial');
+  const trialOpen = await waitFor('trial_open');
+  assert.equal(trialOpen.data.options.length, 4);
+  const correctIndex = trialOpen.data.options.findIndex((option) => option.title === canonized.data.title);
+  assert.notEqual(correctIndex, -1);
+  const answer = trialOpen.data.options[correctIndex].letter;
+  inject('trial_player', answer);
+  inject('trial_player', 'A');
+  inject('trial_wrong', answer === 'A' ? 'B' : 'A');
+  const result = await waitFor('trial_result');
+  assert.equal(result.data.correctIndex, correctIndex);
+  assert.equal(result.data.correctUsers.length, 1);
+  assert.equal(result.data.correctUsers[0].login, 'trial_player');
+  assert.equal(result.data.leaderboard[0].login, 'trial_player');
+  assert.equal(JSON.parse(await readFile(leaderboardPath, 'utf8'))[0].score, result.data.leaderboard[0].score);
+  console.log('[smoke] Ritual, fuzzy initiation, first-message initiation, and a scored Lore Trial passed.');
 } finally {
   engine.stop();
   stopDetector();
-  try { await unlink(dataPath); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  initiation.stop();
+  trials.stop();
+  for (const file of [dataPath, initiatedPath, leaderboardPath]) {
+    try { await unlink(file); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   if (previousApiKey === undefined) delete process.env.OPENAI_API_KEY;
   else process.env.OPENAI_API_KEY = previousApiKey;
 }

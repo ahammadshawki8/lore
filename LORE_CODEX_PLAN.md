@@ -1,4 +1,4 @@
-# LORE CODEX v2 — Build Plan (paste prompts into ONE Codex thread, in order)
+# LORE CODEX v2, Build Plan (paste prompts into ONE Codex thread, in order)
 
 > Every community has lore. Now chat gets to write it.
 
