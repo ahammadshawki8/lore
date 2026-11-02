@@ -12,17 +12,29 @@ LORE is a Twitch companion that turns memorable chat moments into community cano
 4. **Canonize:** The winning title and story become a permanent archive entry, revealed on stream as a collectible LORE card.
 5. **Initiate:** Newcomers can ask what a community reference means or use `!lore <phrase>` to learn its meaning.
 6. **Trials:** A broadcaster or moderator can start a quiz. Chat answers A, B, C, or D, and correct answers earn Loremaster points.
-7. **Codex:** The public archive presents entries as a constellation, with stories, clips, witnesses, usage, and Loremasters.
+7. **Recall:** When three chatters repeat a canonized phrase, LORE shows a "Lore recalled" chip so old jokes stay alive.
+8. **Raid welcome:** Incoming raiders get a Twitch-purple raid alert and a panel dealing the channel's top 3 lore cards, with a chat invite to type `!lore`.
+9. **Archive:** The public archive presents entries as a living starmap and a collectible card binder, with stories, real clips, witnesses, usage, and Loremasters.
 
-## Screenshots and GIF
+**Rarity is participation:** every summoner and voter is printed on the card as a witness. 1 to 3 witnesses mint a Common card, 4 to 6 Rare, 7 to 9 Epic, 10+ Legendary.
 
-The following placeholders are ready to replace with captures from a live setup:
+**Broadcast layout:** graphics live in a right-side panel (summon, trials, raid lore) and a lower third (vote, initiation, raid alert). Only the canonization reveal takes center stage, for a few seconds.
 
-| Overlay | Community archive | Control room |
-| --- | --- | --- |
-| ![LORE overlay screenshot placeholder](docs/overlay-preview.svg) | ![LORE archive screenshot placeholder](docs/archive-preview.svg) | ![LORE control room screenshot placeholder](docs/control-preview.svg) |
+## See it live
 
-Add a short ritual capture at `docs/ritual-demo.gif` when one is available. Capture guidance is in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
+![LORE canonization card revealed live on Twitch, with the bot posting the auto-created clip in chat](docs/live-on-twitch.jpg)
+
+*A real run on twitch.tv/ahammadshawki8: chat summoned the moment, voted on its name, and LORE canonized it with an auto-created Twitch clip.*
+
+| Summon (right panel) | Vote (lower third) |
+| --- | --- |
+| ![Summoning circle with witness avatars](docs/summon.jpg) | ![Three title options with live vote bars](docs/vote.jpg) |
+| **Canonization (center stage)** | **Lore Trials** |
+| ![Legendary LORE card reveal](docs/canonization.jpg) | ![Lore Trials quiz with Loremasters podium](docs/trials.jpg) |
+| **Raid welcome** | **The archive** |
+| ![Raid alert and top lore welcome panel](docs/raid.jpg) | ![Starmap and collectible card binder](docs/archive.jpg) |
+
+![LORE landing page with a live overlay preview](docs/landing.jpg)
 
 ## Architecture
 
@@ -73,7 +85,21 @@ To preview without Twitch credentials, start the local server and open `http://l
 
 ## How we built it with Codex
 
-LORE was built step by step in one Codex thread. The implementation prompts are preserved in [`codex-prompts/`](codex-prompts/) so the project can be reviewed as a sequence of focused changes.
+LORE was built in one Codex thread (Codex CLI, session `01a19d28-4159-73c3-bd36-d3f64e531f16`), one focused prompt at a time. Every prompt is committed in [`codex-prompts/`](codex-prompts/) in order:
+
+| Step | Prompt | What Codex built |
+| --- | --- | --- |
+| 1 | `01-scaffold-twitch` | EventSub WebSocket chat, Helix chat, clips, users, streams |
+| 2 | `02-ritual-engine` | Ritual state machine, chat pressure detector, simulators, offline smoke test |
+| 3 | `03-initiation-trials` | Newcomer initiation, Lore Trials, Loremasters, seed data |
+| 4 | `04` to `04d` | The OBS overlay, then three visual review rounds driven by real screenshots |
+| 5 | `05`, `07`, `07b`, `12` | Archive starmap and card binder, control room |
+| 6 | `06-hardening-readme` | Race fixes, atomic writes, reconnects, docs |
+| 7 | `08-stage-game` | Bucket Quest, an original demo game for streams |
+| 8 | `09` to `11` | Naming fallback after a live test, design system pass, broadcast layout |
+| 9 | `13-raid-welcome-recall` | Raid EventSub welcome and lore recall |
+
+Codex followed project rules kept in [`AGENTS.md`](AGENTS.md), and every step ended with `npm run smoke`, an offline test that plays a full ritual, initiation, trial, recall and raid with stubbed Twitch calls. Between Codex steps we reviewed screenshots of every scene at 1920x1080 and polished layout and readability by hand (for example `public/overlay.polish.css`).
 
 ## License
 
