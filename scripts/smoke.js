@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import { readFile, unlink } from 'node:fs/promises';
 import { startDetector } from '../src/detector.js';
 import { startInitiation } from '../src/initiation.js';
+import { fallbackDraft } from '../src/lorekeeper.js';
 import { startRitualEngine } from '../src/ritual.js';
 import { startTrials } from '../src/trials.js';
 
@@ -15,6 +16,31 @@ const chatEvents = new EventEmitter();
 const broadcast = (type, data) => events.push({ type, data });
 const previousApiKey = process.env.OPENAI_API_KEY;
 delete process.env.OPENAI_API_KEY;
+
+const fallbackCase = fallbackDraft({
+  streamer: 'TestStreamer',
+  stream: { title: 'Pillar Landing Challenge' },
+  messages: [
+    { login: 'witness_one', text: 'NO WAY the bucket survived that KEKW' },
+    { login: 'witness_two', text: 'THE BUCKET' },
+    { login: 'witness_three', text: 'bucket did it again' },
+    { login: 'witness_one', text: 'impossible landing masterpiece' },
+    { login: 'witness_one', text: 'impossible landing masterpiece' },
+    { login: 'witness_one', text: 'impossible landing masterpiece' },
+  ],
+});
+assert.equal(fallbackCase.phrase, 'bucket');
+assert.equal(fallbackCase.titles.length, 3);
+assert.equal(new Set(fallbackCase.titles).size, 3);
+assert.ok(fallbackCase.titles.every((title) => {
+  const words = title.trim().split(/\s+/);
+  return words.length >= 2 && words.length <= 5;
+}));
+assert.ok(fallbackCase.titles.some((title) => /Pillar|Landing/.test(title)));
+assert.equal((fallbackCase.story.match(/[.!?](?:\s|$)/g) ?? []).length, 2);
+assert.ok(fallbackCase.story.includes('TestStreamer'));
+assert.ok(!fallbackCase.trial.question.toLowerCase().includes(fallbackCase.phrase));
+assert.ok(fallbackCase.titles.every((title) => !fallbackCase.trial.question.includes(title)));
 
 const engine = await startRitualEngine({
   chatEvents,
@@ -109,13 +135,14 @@ try {
   inject('lore_fan_2', '!lore');
   inject('lore_fan_3', '!lore');
 
-  await waitFor('vote_open');
+  const voteOpen = await waitFor('vote_open');
   inject('voter_1', '1');
   inject('voter_2', '2');
   inject('voter_3', '3');
   const canonized = await waitFor('canonized');
 
-  assert.equal(canonized.data.title, 'The Dragon chair Incident');
+  assert.equal(canonized.data.title, voteOpen.data.titles[0]);
+  assert.equal(canonized.data.phrase, 'dragon chair');
   assert.equal(canonized.data.n, 1);
   assert.equal(engine.getLore().length, 1);
   assert.ok(sent.some((message) => message.includes('CANONIZED')));
