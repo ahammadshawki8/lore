@@ -43,6 +43,12 @@ phrase, increment that lore's uses (persist, throttled).
 - GET /api/lore returns all entries.
 For fake users, sendChat should still be called (it just posts to the real channel).
 
+Note: dependencies are already installed and Step 1 was verified live (token validated,
+EventSub subscription 202, chat arriving). Your sandbox has NO network access, so do not run
+npm install or anything that hits Twitch/OpenAI. Make the smoke test fully offline: import
+the modules in-process with a mocked twitch layer (sendChat/createClip/getUsers/getStream
+stubs) and use short timers via config, instead of HTTP calls.
+
 Then test it yourself end to end WITHOUT Twitch input: write scripts/smoke.js that starts
 the pipeline in-process (or calls the HTTP endpoints while the server runs), simulates 3
 users typing !lore, then votes, and asserts a lore entry is saved. Run it and fix anything
