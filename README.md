@@ -8,7 +8,16 @@ LORE is a Twitch companion that turns memorable stream moments into community ca
 
 *A real run on twitch.tv/ahammadshawki8: chat summoned the moment, voted on its name, and LORE canonized it with an auto-created Twitch clip.*
 
-## Try it in one minute (no Twitch account needed)
+## Try it now (no install)
+
+| Page | Live link | What it is |
+| --- | --- | --- |
+| Home | [ahammadshawki8.github.io/lore](https://ahammadshawki8.github.io/lore/) | Landing page with a live overlay preview |
+| Overlay demo | [overlay.html?demo=1&bg=1](https://ahammadshawki8.github.io/lore/overlay.html?demo=1&bg=1) | Every scene, looping over the demo game |
+| Archive | [codex.html](https://ahammadshawki8.github.io/lore/codex.html) | Starmap and card binder from a real LORE run, with its Twitch clip |
+| Control room | [control.html](https://ahammadshawki8.github.io/lore/control.html) | Preview of the streamer dashboard (needs the local server to drive rituals) |
+
+## Run it locally (no Twitch account needed)
 
 ```bash
 git clone https://github.com/ahammadshawki8/lore && cd lore
@@ -17,16 +26,7 @@ npm run seed
 npm start
 ```
 
-Then open:
-
-| Page | URL | What it is |
-| --- | --- | --- |
-| Home | `http://localhost:3000` | Landing page with a live overlay preview |
-| Overlay demo | `http://localhost:3000/overlay.html?demo=1&bg=1` | Every scene, looping over the demo game |
-| Control room | `http://localhost:3000/control.html` | Start rituals and trials, tune timers, simulate a crowd |
-| Archive | `http://localhost:3000/codex.html` | Starmap and collectible card binder |
-
-Without Twitch credentials, everything runs locally through the control room simulators.
+Open the same pages on your machine at `localhost:3000` (`/`, `/overlay.html?demo=1&bg=1`, `/codex.html`, `/control.html`). The control room's crowd simulators run every feature without Twitch credentials.
 
 ## The ritual
 
@@ -68,7 +68,7 @@ Requirements: Node.js 20 or newer.
 1. Generate a token at [twitchtokengenerator.com](https://twitchtokengenerator.com/) with **Custom Scope Token** and the scopes `user:read:chat user:write:chat user:bot clips:edit`.
 2. Copy `.env.example` to `.env` and set `ACCESS_TOKEN` and `CLIENT_ID`. `OPENAI_API_KEY` is optional, and `PORT` defaults to `3000`.
 3. Run `npm start`. The server validates the token and subscribes to chat and raid events for that channel.
-4. In OBS, add a **Browser Source** with `http://localhost:3000/overlay.html`, 1920 x 1080. Enable **Control audio via OBS** to hear the synthesized sound effects.
+4. In OBS, add a **Browser Source** pointing at your local server, `localhost:3000/overlay.html`, at 1920 x 1080. Enable **Control audio via OBS** to hear the synthesized sound effects.
 
 Clips are created only while the channel is live. Every ritual still completes without one.
 
