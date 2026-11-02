@@ -72,3 +72,64 @@
 }
 .achievement-copy b { font-size: 16px; letter-spacing: .12em; }
 .achievement-copy strong { font-size: 26px; line-height: 1.25; }
+
+/* RAID: a headline moment, Twitch purple, readable at stream size. */
+.raid-banner {
+  bottom: 64px;
+  width: min(1040px, calc(100vw - 128px));
+  gap: 22px;
+  padding: 18px 28px 18px 18px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 22px;
+  background: linear-gradient(100deg, #772ce8 0%, #9146ff 45%, #5c16c5 100%);
+  box-shadow: 0 24px 60px rgba(60, 10, 140, .55), inset 0 1px 0 rgba(255, 255, 255, .25);
+}
+.raid-banner::after {
+  content: 'Type !lore to learn our legends';
+  margin-left: auto;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(14, 10, 28, .92);
+  color: var(--gold, #f5c451);
+  font: 800 20px/1 var(--font-body, Inter, sans-serif);
+  white-space: nowrap;
+}
+.raid-avatar-wrap { flex-basis: 84px; width: 84px; height: 84px; border: 3px solid #fff; background: #2b1650; color: #fff; font: 900 34px/1 var(--font-body, Inter, sans-serif); box-shadow: 0 0 0 6px rgba(255, 255, 255, .18); }
+.raid-banner-copy small { color: #f3e8ff; font: 800 15px/1.2 var(--font-body, Inter, sans-serif); letter-spacing: .22em; }
+.raid-banner-copy strong { color: #fff; font: 800 40px/1.1 var(--font-body, Inter, sans-serif); letter-spacing: -.01em; }
+.raid-banner-copy > span { color: #eadcff; font: 700 20px/1.2 var(--font-body, Inter, sans-serif); }
+
+.raid-panel {
+  top: 120px;
+  right: 64px;
+  width: 416px;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-top: 4px solid var(--gold, #f5c451);
+  border-radius: 24px;
+  background: linear-gradient(180deg, #1a1430, #0e0a1c);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+}
+.raid-panel-heading { margin-bottom: 14px; color: var(--gold, #f5c451); font: 800 26px/1.15 var(--display, 'Cinzel', serif); letter-spacing: .04em; }
+.raid-lore-card { min-height: 96px; gap: 14px; padding: 14px 16px; border-radius: 16px; background: #19142a; border-color: rgba(245, 196, 81, .35); }
+.raid-lore-sigil { flex-basis: 52px; font-size: 40px; }
+.raid-lore-copy strong { white-space: normal; font: 800 22px/1.2 var(--font-body, Inter, sans-serif); }
+.raid-lore-copy span { -webkit-line-clamp: 2; font: 500 17px/1.35 var(--font-body, Inter, sans-serif); color: #c9c1e6; }
+.raid-card-count { margin-top: 12px; font: 700 14px/1 var(--font-body, Inter, sans-serif); color: #a99fc8; }
+
+/* RECALL: a confident chip, not a whisper. */
+.recall-chip {
+  top: 64px;
+  right: 64px;
+  width: 440px;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid rgba(245, 196, 81, .55);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #221a3a, #120d22);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5), 0 0 24px rgba(245, 196, 81, .2);
+}
+.recall-chip .chip-sigil { font-size: 34px; }
+.recall-copy strong { font: 800 13px/1.1 var(--font-body, Inter, sans-serif); letter-spacing: .16em; }
+.recall-title { font: 800 22px/1.2 var(--font-body, Inter, sans-serif); color: #fff; }
+.recall-copy small { font: 700 15px/1.2 var(--font-body, Inter, sans-serif); color: #e9d6a6; }
