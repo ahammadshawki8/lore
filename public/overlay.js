@@ -26,7 +26,7 @@
   let demoStopped = false;
   let demoSummonSeen = false;
   let pressureData = { phrase: '', value: 0 };
-  let sceneDemoTimer = null;
+  const sceneDemoTimers = [];
   let countdownTimer = null;
   let currentVoteLeader = null;
   let hitStopTimer = null;
@@ -306,7 +306,11 @@
   const particles = new ParticleSystem(byId('particle-canvas'));
   const sound = new Synth();
   initPressure();
-  if (query.get('bg') === '1') document.body.classList.add('preview-bg');
+  if (query.get('bg') === '1') {
+    const preview = byId('stage-preview');
+    preview.src = '/stage.html';
+    preview.hidden = false;
+  }
   if (query.get('sound') === '1') {
     const button = byId('sound-enable');
     button.style.display = 'block';
@@ -375,6 +379,17 @@
       if (finalNode) { finalNode.textContent = seconds <= 5 && seconds > 0 ? String(seconds) : ''; finalNode.classList.toggle('is-live', seconds <= 5 && seconds > 0); if (seconds <= 5 && seconds > 0 && seconds !== lastCountdownSecond) { lastCountdownSecond = seconds; sound.tick(); if (motion) motion.fromTo(finalNode, { scale: 1.55, opacity: .4 }, { scale: 1, opacity: 1, duration: .24, ease: 'back.out(2)' }); } }
       if (seconds <= 0) clearInterval(countdownTimer);
     }, 250);
+  }
+
+  function runBarCountdown(bar, endsAt, durationFallback = 20) {
+    if (!bar) return;
+    const candidateEnd = endsAt ? new Date(endsAt).getTime() : Date.now() + durationFallback * 1000;
+    const remaining = Math.max(.2, (Number.isFinite(candidateEnd) ? candidateEnd : Date.now() + durationFallback * 1000) - Date.now());
+    if (motion) motion.to(bar, { scaleX: 0, duration: remaining / 1000, ease: 'none' });
+    else {
+      bar.style.transition = `transform ${remaining}ms linear`;
+      requestAnimationFrame(() => { bar.style.transform = 'scaleX(0)'; });
+    }
   }
 
   function addCleanup(cleanup) {
@@ -504,7 +519,7 @@
       const y = 350 + Math.sin(angle - Math.PI / 2) * 305;
       return `<text class="circle-runes" x="${x.toFixed(2)}" y="${y.toFixed(2)}" transform="rotate(${(angle * 180 / Math.PI + 90).toFixed(1)} ${x.toFixed(2)} ${y.toFixed(2)})">${runeGlyphs[index % runeGlyphs.length]}</text>`;
     }).join('');
-    return `<div class="scene-backwash"></div><div class="summon-title scene-title">THE SUMMONING</div><div id="summon-caption" class="summon-subtitle scene-subtitle"></div><div class="summon-pillar" id="summon-pillar"></div><div class="summoning-circle" id="summoning-circle"><svg viewBox="0 0 700 700" aria-hidden="true"><circle class="circle-line" cx="350" cy="350" r="320"></circle><circle class="circle-line dim" cx="350" cy="350" r="294"></circle><circle class="circle-line" cx="350" cy="350" r="260"></circle><g id="rune-ring-a">${chars}</g><g id="sigil-hex" class="sigil-geometry"><polygon points="350,55 605,202 605,498 350,645 95,498 95,202"></polygon></g><g id="sigil-triangle" class="sigil-geometry"><polygon points="350,125 545,485 155,485"></polygon></g><circle id="sigil-core" class="sigil-geometry" cx="350" cy="350" r="125"></circle><circle id="summon-countdown" class="countdown-ring" cx="350" cy="350" r="338"></circle></svg></div><div id="summon-slots"></div><div class="summon-combo-display" id="summon-combo-display"></div>`;
+    return `<section class="broadcast-panel summon-panel"><h1 class="panel-heading summon-title">THE SUMMONING</h1><div class="summoning-circle" id="summoning-circle"><svg viewBox="0 0 700 700" aria-hidden="true"><circle class="circle-line" cx="350" cy="350" r="320"></circle><circle class="circle-line dim" cx="350" cy="350" r="294"></circle><circle class="circle-line" cx="350" cy="350" r="260"></circle><g id="rune-ring-a">${chars}</g><g id="sigil-hex" class="sigil-geometry"><polygon points="350,55 605,202 605,498 350,645 95,498 95,202"></polygon></g><g id="sigil-triangle" class="sigil-geometry"><polygon points="350,125 545,485 155,485"></polygon></g><circle id="sigil-core" class="sigil-geometry" cx="350" cy="350" r="125"></circle></svg></div><div id="summon-slots"></div><div class="summon-counter-row"><div class="summon-witness-counter" id="summon-witness-counter">0 / 3 WITNESSES</div><div class="summon-combo-display" id="summon-combo-display" aria-live="polite"></div></div><div class="summon-countdown-track"><span id="summon-countdown-bar"></span></div><div id="summon-caption" class="summon-instruction">Type !lore to join</div></section>`;
   }
 
   function updateSummon(data = {}) {
@@ -514,15 +529,25 @@
     const joiners = data.joiners || [];
     const needed = Math.max(0, Number(data.needed) || 0);
     const total = joiners.length + needed;
-    caption.textContent = `TYPE !lore TO JOIN \u00B7 ${joiners.length}/${total || joiners.length}`;
+    caption.textContent = 'Type !lore to join';
+    const counter = byId('summon-witness-counter');
+    if (counter) counter.textContent = `${joiners.length} / ${total || joiners.length} WITNESSES`;
     const known = new Set([...slots.querySelectorAll('[data-login]')].map((node) => node.dataset.login));
     joiners.forEach((user, index) => {
       const key = String(user.login || user.display_name || index);
-      if (known.has(key)) return;
-      const angle = (-150 + (total <= 1 ? 60 : index * 120 / (total - 1))) * Math.PI / 180;
-      const radius = Math.min(310, window.innerHeight * .29);
-      const left = 50 + Math.cos(angle) * radius / window.innerWidth * 100;
-      const top = 52 + Math.sin(angle) * radius / window.innerHeight * 100;
+      const angle = (-90 + index * 360 / Math.max(1, joiners.length)) * Math.PI / 180;
+      const radius = 130;
+      const panel = slots.closest('.summon-panel');
+      const panelWidth = panel?.clientWidth || 416;
+      const panelHeight = panel?.clientHeight || 780;
+      const left = 50 + Math.cos(angle) * radius / panelWidth * 100;
+      const top = 40 + Math.sin(angle) * radius / panelHeight * 100;
+      const existing = [...slots.children].find((node) => node.dataset.login === key);
+      if (existing) {
+        if (motion) motion.to(existing, { left: `${left}%`, top: `${top}%`, duration: .25, ease: 'power3.out' });
+        else { existing.style.left = `${left}%`; existing.style.top = `${top}%`; }
+        return;
+      }
       const node = document.createElement('div');
       node.className = 'summon-avatar-slot';
       node.dataset.login = key;
@@ -533,64 +558,63 @@
       known.add(key);
       if (motion) {
         const side = index % 2 ? 1 : -1;
-        motion.set(node, { opacity: 0, x: side * 850, y: 130, scale: .25, rotation: side * 22 });
-        motion.timeline()
-          .to(node, { opacity: .8, x: side * 330, y: -120, scale: .78, rotation: side * 9, duration: .42, ease: 'sine.out' })
-          .to(node, { opacity: 1, x: 0, y: 0, scaleX: 1.14, scaleY: .86, rotation: 0, duration: .18, ease: 'back.out(1.8)' })
-          .to(node, { scaleX: 1, scaleY: 1, duration: .18, ease: 'elastic.out(1,.35)' });
+        motion.set(node, { opacity: 0, x: side * 36, y: 18, scale: .82 });
+        motion.to(node, { opacity: 1, x: 0, y: 0, scale: 1, duration: .35, ease: 'back.out(1.7)' });
         motion.fromTo(node.querySelector('.summon-plus'), { opacity: 0, y: 10, scale: .35 }, { opacity: 1, y: -16, scale: 1.25, duration: .32, delay: .58, ease: 'back.out(2)', onComplete: () => motion.to(node.querySelector('.summon-plus'), { opacity: 0, y: -35, duration: .3 }) });
       }
       sound.chime();
-      particles.burst(window.innerWidth * left / 100, window.innerHeight * top / 100, 'spark', 20, '#3ee6ff');
+      particles.burst(window.innerWidth - 64 - panelWidth + panelWidth * left / 100, 120 + panelHeight * top / 100, 'spark', 8, '#f5c451');
       const combo = byId('summon-combo-display');
-      if (combo) { combo.textContent = known.size === 1 ? '+1' : `${known.size}x ${known.size >= 3 ? 'SUMMONED!' : 'COMBO'}`; combo.classList.add('is-visible'); if (motion) motion.fromTo(combo, { scaleX: .72, scaleY: 1.32 }, { scaleX: 1, scaleY: 1, duration: .42, ease: 'elastic.out(1,.4)', overwrite: true }); }
+      if (combo) { combo.textContent = `x${known.size}`; combo.classList.add('is-visible'); if (motion) motion.fromTo(combo, { scale: .7 }, { scale: 1, duration: .3, ease: 'back.out(1.8)', overwrite: true }); }
     });
-    if (joiners.length) safeTween(byId('summoning-circle'), { filter: `drop-shadow(0 0 ${20 + joiners.length * 8}px #3ee6ff) drop-shadow(0 0 ${35 + joiners.length * 14}px #f5c451)`, duration: .45 });
+    if (joiners.length) safeTween(byId('summoning-circle'), { filter: `drop-shadow(0 0 22px #f5c451)`, duration: .3 });
     if (motion && joiners.length) { motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core']); const speed = Math.max(6, 50 / joiners.length); motion.to('#rune-ring-a', { rotation: 360, duration: speed, repeat: -1, ease: 'none' }); motion.to('#sigil-hex', { rotation: 360, svgOrigin: '350 350', duration: Math.max(5, speed * .55), repeat: -1, ease: 'none' }); motion.to('#sigil-triangle', { rotation: -360, svgOrigin: '350 350', duration: Math.max(5, speed * .72), repeat: -1, ease: 'none' }); motion.to('#sigil-core', { scale: 1.12, duration: Math.max(.35, 1.2 / joiners.length), yoyo: true, repeat: -1, ease: 'sine.inOut' }); }
     if (needed === 0 && !slots.dataset.threshold) {
       slots.dataset.threshold = '1';
-      hitStopImpact('#f5c451');
+      const panel = slots.closest('.summon-panel');
+      panel?.classList.add('threshold-flash');
+      setTimeout(() => panel?.classList.remove('threshold-flash'), 500);
       sound.whoosh();
-      showCallout('SUMMONED!', '#f5c451');
-      particles.burst(window.innerWidth / 2, window.innerHeight * .7, 'coin', 36);
-      safeTween(byId('summon-pillar'), { opacity: .82, scaleY: 1, duration: .8, ease: 'expo.out' });
+      showCallout('SUMMONED!', '#f5c451', 1.2);
       safeTween(byId('summoning-circle'), { filter: 'drop-shadow(0 0 45px #fff3b9) drop-shadow(0 0 90px #f5c451)', duration: .45, yoyo: true, repeat: 1 });
-      safeTween(byId('flash'), { opacity: .52, duration: .12, yoyo: true, repeat: 1 });
-      if (motion) motion.to(sceneLayer, { x: 7, y: -5, duration: .045, yoyo: true, repeat: 7 });
-      particles.burst(window.innerWidth / 2, window.innerHeight * .54, 'spark', 80);
     }
   }
 
-  function showCallout(text, color = '#f5c451') {
+  function showCallout(text, color = '#f5c451', visibleDuration = 2) {
     const scene = sceneLayer.firstElementChild;
     if (!scene) return;
     const node = document.createElement('div');
     node.className = 'impact-callout'; node.textContent = text; node.style.setProperty('--callout-color', color); scene.append(node);
-    if (motion) motion.fromTo(node, { opacity: 0, scale: .25, rotationX: -42, y: 60 }, { opacity: 1, scale: 1, rotationX: 0, y: 0, duration: .5, ease: 'back.out(2.4)', onComplete: () => motion.to(node, { opacity: 0, y: -70, scale: 1.08, duration: .45, delay: 1.05, onComplete: () => node.remove() }) });
-    else setTimeout(() => node.remove(), 1600);
+    if (motion) motion.fromTo(node, { opacity: 0, scale: .82, y: 18 }, { opacity: 1, scale: 1, y: 0, duration: .2, ease: 'power3.out', onComplete: () => motion.to(node, { opacity: 0, y: -24, scale: 1.02, duration: .2, delay: Math.max(0, visibleDuration - .4), onComplete: () => node.remove() }) });
+    else setTimeout(() => node.remove(), visibleDuration * 1000);
   }
 
   function renderSummon(data, scene) {
     setSceneMarkup('summon-scene', summonMarkup());
+    const candidateEnd = data.endsAt ? new Date(data.endsAt).getTime() : Date.now() + 20000;
+    const duration = Math.max(.2, ((Number.isFinite(candidateEnd) ? candidateEnd : Date.now() + 20000) - Date.now()) / 1000);
+    const countdown = byId('summon-countdown-bar');
     if (motion) {
-      const timeline = motion.timeline();
-      timeline.fromTo(byId('summoning-circle'), { y: 420, scale: .72, opacity: 0, rotation: -5 }, { y: 0, scale: 1, opacity: 1, rotation: 0, duration: 1.35, ease: 'back.out(1.35)' }, 0)
-        .fromTo('.sigil-geometry', { opacity: 0, scale: .7 }, { opacity: .82, scale: 1, svgOrigin: '350 350', duration: 1, stagger: .16, ease: 'back.out(1.5)' }, .4);
+      motion.fromTo('.summon-panel', { x: 32, opacity: 0 }, { x: 0, opacity: 1, duration: .4, ease: 'power3.out' });
+      motion.fromTo(byId('summoning-circle'), { scale: .85, opacity: 0 }, { scale: 1, opacity: 1, duration: .4, ease: 'power3.out' });
+      motion.fromTo('.sigil-geometry', { opacity: 0, scale: .7 }, { opacity: .82, scale: 1, svgOrigin: '350 350', duration: .4, stagger: .08, ease: 'power3.out' });
       motion.to('#rune-ring-a', { rotation: 360, duration: 50, repeat: -1, ease: 'none' });
-      byId('summon-countdown').style.strokeDasharray = '2123.7';
-      motion.to('#summon-countdown', { strokeDashoffset: 2130, duration: Math.max(.2, (new Date(data.endsAt || Date.now() + 20000).getTime() - Date.now()) / 1000), ease: 'none' });
+      motion.to(countdown, { scaleX: 0, duration, ease: 'none' });
+    } else if (countdown) {
+      countdown.style.transition = `transform ${duration}s linear`;
+      requestAnimationFrame(() => { countdown.style.transform = 'scaleX(0)'; });
     }
     sound.whoosh();
     updateSummon(data);
     scene.cleanups.push(() => {
-      if (motion) motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core', '#summoning-circle', '#summon-countdown']);
+      if (motion) motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core', '#summoning-circle', '#summon-countdown-bar', '.summon-panel']);
     });
   }
 
   function renderFizzle(_data, _scene, complete) {
     setSceneMarkup('fizzle-scene', `<div class="fizzle-title">the lore fades...<br><span class="scene-subtitle">(not enough witnesses)</span></div><div class="summoning-circle" id="fizzle-circle"><svg viewBox="0 0 700 700"><circle class="circle-line" cx="350" cy="350" r="320"></circle><circle class="circle-line dim" cx="350" cy="350" r="260"></circle>${svgRuneRing(350, 350, 305, 24, 'circle-runes')}</svg></div>`);
     sound.whoosh();
-    particles.burst(window.innerWidth / 2, window.innerHeight * .64, 'smoke', 45);
+    particles.burst(window.innerWidth - 272, Math.min(560, window.innerHeight * .48), 'smoke', 24);
     if (motion) {
       const timeline = motion.timeline({ onComplete: complete });
       timeline.fromTo('#fizzle-circle', { y: 0, opacity: .8, scale: 1 }, { y: 45, opacity: 0, scale: .88, filter: 'grayscale(1) blur(8px)', duration: 3.7, ease: 'power2.in' }, 0)
@@ -630,19 +654,14 @@
   }
 
   function renderDecipher(_data, scene, complete) {
-    setSceneMarkup('decipher-scene', `${tomeMarkup()}<div class="decipher-caption">THE ARCHIVE DECIPHERS...</div>`);
+    setSceneMarkup('decipher-scene', `<section class="broadcast-panel decipher-panel"><h1 class="panel-heading">DECIPHERING...</h1><div class="decipher-runes" id="tome-runes"></div><div class="decipher-progress"><span></span></div></section>`);
     const runeNode = byId('tome-runes');
     const scramble = setInterval(() => { runeNode.textContent = Array.from({ length: 7 }, () => randomRunes(28)).join('\n'); }, 85);
     scene.cleanups.push(() => clearInterval(scramble));
     sound.pageFlip();
     if (motion) {
-      motion.set('#tome-wrap', { y: -500, rotationX: 24, scale: .72, opacity: 0 });
-      const timeline = motion.timeline({ onComplete: complete });
-      timeline.to('#tome-wrap', { y: 0, rotationX: 0, scale: 1, opacity: 1, duration: 1.1, ease: 'back.out(1.35)' }, .1)
-        .to('#tome-cover', { rotateY: -158, duration: 2, ease: 'power3.inOut' }, 1.1)
-        .fromTo('.decipher-caption', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: .7 }, 1.6)
-        .to('#tome-wrap', { y: -12, duration: .8, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 3.2)
-        .to({}, { duration: .8 }, 3.8);
+      motion.fromTo('.decipher-panel', { x: 32, opacity: 0 }, { x: 0, opacity: 1, duration: .4, ease: 'power3.out' });
+      motion.fromTo('.decipher-progress span', { scaleX: 0 }, { scaleX: 1, duration: 4.1, ease: 'power3.out', onComplete: complete });
     } else setTimeout(complete, 4500);
   }
 
@@ -650,13 +669,10 @@
     currentVoteLeader = null;
     lastCountdownSecond = null;
     const titles = data.titles || [];
-    const scrolls = titles.slice(0, 3).map((title, index) => `<article class="vote-scroll" data-index="${index}"><div class="vote-number"><span>${index + 1}</span></div><div class="vote-title">${escapeHtml(title)}</div><div class="vote-count" data-count="${index}">0 witnesses</div><div class="vote-percent" data-percent="${index}">0%</div><div class="vote-bar-track"><div class="vote-bar-fill" data-bar="${index}"></div></div></article>`).join('');
-    setSceneMarkup('vote-scene', `<div class="scene-title vote-heading">THE PEOPLE CHOOSE</div><div class="vote-question">TYPE 1, 2 OR 3 IN CHAT</div><div class="scroll-row">${scrolls}</div>${makeCountdown('vote-clock-progress', '⌛')}`);
+    const scrolls = titles.slice(0, 3).map((title, index) => `<article class="vote-scroll" data-index="${index}"><div class="vote-number"><span>${index + 1}</span></div><div class="vote-title">${escapeHtml(title)}</div><div class="vote-count" data-count="${index}">0 witnesses</div><div class="vote-percent" data-percent="${index}">0%</div><div class="vote-bar-track"><div class="vote-bar-fill" data-bar="${index}"></div></div><div class="vote-leader-badge" hidden>TAKES THE LEAD!</div></article>`).join('');
+    setSceneMarkup('vote-scene', `<section class="vote-lower-third"><div class="vote-label-block"><strong>NAME THIS MOMENT</strong><span>Type 1, 2 or 3</span>${makeCountdown('vote-clock-progress', '⌛')}</div><div class="vote-options">${scrolls}</div></section>`);
     if (motion) {
-      const timeline = motion.timeline();
-      timeline.fromTo('.vote-heading', { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: .8, ease: 'power2.out' }, 0)
-        .fromTo('.vote-question', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: .7 }, .35)
-        .to('.vote-scroll', { scaleY: 1, duration: .9, stagger: .17, ease: 'back.out(1.55)' }, .15);
+      motion.fromTo('.vote-lower-third', { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: .35, ease: 'power3.out' });
     }
     runCountdown(byId('vote-clock-progress'), data.endsAt, 20);
     updateVoteTally([0, 0, 0]);
@@ -668,7 +684,7 @@
     const total = normalized.reduce((sum, value) => sum + value, 0);
     const maximum = Math.max(...normalized);
     const leader = maximum ? normalized.indexOf(maximum) : null;
-    if (leader !== null && currentVoteLeader !== null && leader !== currentVoteLeader) { showCallout('TAKES THE LEAD!', '#3ee6ff'); sound.chime(); particles.burst(window.innerWidth / 2, window.innerHeight * .5, 'spark', 24, '#3ee6ff'); }
+    if (leader !== null && currentVoteLeader !== null && leader !== currentVoteLeader) sound.chime();
     currentVoteLeader = leader;
     normalized.forEach((count, index) => {
       const bar = sceneLayer.querySelector(`[data-bar="${index}"]`);
@@ -678,12 +694,14 @@
       const percent = total ? Math.round(count / total * 100) : 0;
       if (countNode) countNode.textContent = `${count} ${count === 1 ? 'witness' : 'witnesses'}`;
       if (percentNode) percentNode.textContent = `${percent}%`;
+      const leaderBadge = card?.querySelector('.vote-leader-badge');
+      if (leaderBadge) leaderBadge.hidden = !(maximum > 0 && count === maximum);
       if (bar && motion) motion.to(bar, { scaleX: percent / 100, transformOrigin: 'left center', duration: .55, ease: 'power2.out' });
       else if (bar) bar.style.transform = `scaleX(${percent / 100})`;
       if (card) {
         const isLeading = maximum > 0 && count === maximum;
         card.classList.toggle('leading', isLeading);
-        if (motion) motion.to(card, { y: isLeading ? -12 : 0, duration: .45, ease: 'power2.out' });
+        if (motion) motion.to(card, { y: isLeading ? -8 : 0, duration: .3, ease: 'power3.out' });
       }
     });
   }
@@ -716,16 +734,19 @@
       motion.set('#card-story', { opacity: 0, y: 15, filter: 'blur(8px)' });
       motion.set('.card-witness', { opacity: 0, y: 28, scale: .5 });
       motion.set('#canon-stamp', { opacity: 0, scale: 2.7, rotation: -13 });
-      const timeline = motion.timeline({ onComplete: () => {
-        if (sceneHoldMode) return;
+      const chip = byId('corner-chip');
+      const chipRect = chip.getBoundingClientRect();
+      const flyX = chipRect.left + chipRect.width / 2 - window.innerWidth / 2;
+      const flyY = chipRect.top + chipRect.height / 2 - window.innerHeight / 2;
+    const timeline = motion.timeline({ onComplete: () => {
         collectionCount += 1;
-        const chip = byId('corner-chip');
-        chip.innerHTML = `<span class="chip-sigil">${sigil}</span><span>LORE #${loreNumber}</span><b class="chip-count">+1</b>`;
-        motion.fromTo(chip, { opacity: 0, y: -20, scale: .75 }, { opacity: 1, y: 0, scale: 1, duration: .55, ease: 'back.out(1.8)' });
+        chip.innerHTML = `<span class="chip-sigil">${sigil}</span><span>LORE #${loreNumber} · ${escapeHtml(displayTitle)}</span>`;
+        motion.fromTo(chip, { opacity: 0, y: -12 }, { opacity: 1, y: 0, duration: .3, ease: 'power3.out' });
         if (chipHideTimer) clearTimeout(chipHideTimer);
-        chipHideTimer = setTimeout(() => safeTween(chip, { opacity: 0, y: -12, duration: .6 }), 30000);
+        chipHideTimer = setTimeout(() => safeTween(chip, { opacity: 0, y: -12, duration: .3 }), 30000);
         safeTween(byId('vignette'), { opacity: 0, duration: .5 }); safeTween(byId('ray-field'), { opacity: 0, duration: .5 });
-        complete();
+        if (sceneHoldMode) finishActive();
+        else complete();
       }});
       timeline.to(pack, { y: window.innerHeight * .48, opacity: 1, scale: 1.08, duration: 1.18, ease: 'bounce.out' }, 0)
         .to(pack, { rotation: 4, duration: .07, ease: 'none' }, 1.18)
@@ -741,10 +762,19 @@
         .to('#rarity-callout', { opacity: 1, scale: 1, rotationX: 0, duration: .55, ease: 'back.out(2)' }, 3.25)
         .to('#rarity-callout', { opacity: 0, y: -40, duration: .35 }, 4.45)
         .to('#canon-stamp', { opacity: .92, scale: 1, duration: .55, ease: 'back.out(2.5)', onStart: () => { sound.stamp(); particles.burst(window.innerWidth / 2, window.innerHeight * .5, 'ember', 34, '#ff4d4d'); particles.burst(window.innerWidth / 2, window.innerHeight * .5, 'spark', 22, '#ff4d4d'); } }, 4.65)
-        .to(wrap, { rotationY: 5, duration: 2, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 5.3)
-        .to({}, { duration: sceneHoldMode ? 6 : 2.25 }, 7.1);
-      if (!sceneHoldMode) timeline.to(wrap, { x: window.innerWidth * .36, y: -window.innerHeight * .34, scale: .16, opacity: 0, duration: .8, ease: 'power3.in' }, 9.35);
-    } else setTimeout(complete, 10000);
+        .to(wrap, { rotationY: 3, duration: .5, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 5.3)
+        .to({}, { duration: 1.1 }, 7.1)
+        .to(wrap, { x: flyX, y: flyY, scale: .14, opacity: 0, duration: .8, ease: 'power3.in' }, 8.2);
+    } else setTimeout(() => {
+      const chip = byId('corner-chip');
+      chip.innerHTML = `<span class="chip-sigil">${sigil}</span><span>LORE #${loreNumber} · ${escapeHtml(displayTitle)}</span>`;
+      chip.style.opacity = '1';
+      wrap.style.opacity = '0';
+      byId('vignette').style.opacity = '0';
+      byId('ray-field').style.opacity = '0';
+      if (sceneHoldMode) finishActive();
+      else complete();
+    }, 9000);
     scene.cleanups.push(() => { safeTween(byId('vignette'), { opacity: 0, duration: .25 }); safeTween(byId('ray-field'), { opacity: 0, duration: .25 }); });
   }
 
@@ -753,7 +783,7 @@
     const lore = data.lore || {};
     setSceneMarkup('initiation-scene', `<div class="achievement-pill" id="achievement-pill"><div class="achievement-icon">${imageTag(user)}<span class="candle-icon">🕯</span></div><div class="achievement-copy"><b>ACHIEVEMENT UNLOCKED</b><strong>@${escapeHtml(user.display_name || user.login || 'witness')}: Initiated into ${escapeHtml(lore.title || 'The Living Archive')}</strong><small>+1 LORE KNOWN</small></div><i class="achievement-sheen"></i></div>`);
     const avatar = sceneLayer.querySelector('.achievement-icon .avatar-orb');
-    if (motion) motion.fromTo('#achievement-pill', { x: 640, opacity: 0, scale: 1.09 }, { x: 0, opacity: 1, scale: 1, duration: .65, ease: 'back.out(1.7)' });
+    if (motion) motion.fromTo('#achievement-pill', { x: 640, opacity: 0, scale: .95 }, { x: 0, opacity: 1, scale: 1.2, duration: .4, ease: 'power3.out' });
     sound.chime();
     particles.burst(window.innerWidth * .84, window.innerHeight * .84, 'spark', 26, '#f5c451');
     scene.cleanups.push(() => { if (motion) motion.killTweensOf(avatar); });
@@ -767,16 +797,14 @@
       const option = options[index];
       const letter = option?.letter || ['A', 'B', 'C', 'D'][index];
       const title = typeof option === 'string' ? option : option?.title || 'An untold tale';
-      return `<div class="trial-tile" data-tile="${index}"><span class="tile-rune">${escapeHtml(letter)}</span><span class="tile-copy">${escapeHtml(title)}</span><span class="tile-count" data-trial-count="${index}">0</span></div>`;
+      return `<div class="trial-tile" data-tile="${index}"><span class="tile-rune">${escapeHtml(letter)}</span><span class="tile-copy">${escapeHtml(title)}</span><span class="tile-count" data-trial-count="${index}">0</span><span class="tile-bar" aria-hidden="true"><span data-trial-bar="${index}"></span></span></div>`;
     }).join('');
-    setSceneMarkup('trial-scene', `<div class="trial-banner">⚔ THE LORE TRIALS ⚔</div><div class="trial-question">${escapeHtml(question)}</div><div class="trial-grid">${tiles}</div>${makeCountdown('trial-clock-progress', '⌛')}`);
+    setSceneMarkup('trial-scene', `<section class="broadcast-panel trial-panel"><h1 class="panel-heading">LORE TRIALS</h1><div class="trial-question">${escapeHtml(question)}</div><div class="trial-grid">${tiles}</div><div class="trial-countdown-track"><span id="trial-countdown-bar"></span></div></section>`);
     if (motion) {
-      const timeline = motion.timeline();
-      timeline.fromTo('.trial-banner', { y: -150, rotation: -8, opacity: 0 }, { y: 0, rotation: -2, opacity: 1, duration: .9, ease: 'back.out(2)' }, 0)
-        .fromTo('.trial-question', { opacity: 0, scale: .82, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: .7, ease: 'back.out(1.5)' }, .25)
-        .fromTo('.trial-tile', { opacity: 0, y: 40, rotationX: 40, scale: .75 }, { opacity: 1, y: 0, rotationX: 0, scale: 1, duration: .65, stagger: .12, ease: 'back.out(1.6)' }, .4);
+      motion.fromTo('.trial-panel', { x: 32, opacity: 0 }, { x: 0, opacity: 1, duration: .35, ease: 'power3.out' });
+      motion.fromTo('.trial-tile', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: .3, stagger: .06, ease: 'power3.out' });
     }
-    runCountdown(byId('trial-clock-progress'), data.endsAt, 20);
+    runBarCountdown(byId('trial-countdown-bar'), data.endsAt, 20);
     updateTrialTally(latestTrialCounts);
   }
 
@@ -784,6 +812,14 @@
     [0, 1, 2, 3].forEach((index) => {
       const node = sceneLayer.querySelector(`[data-trial-count="${index}"]`);
       if (node) { const next = String(Math.max(0, Number(counts[index]) || 0)); if (node.textContent !== next && motion) motion.fromTo(node, { scale: .7 }, { scale: 1.35, duration: .18, yoyo: true, repeat: 1, ease: 'back.out(2)' }); node.textContent = next; }
+    });
+    const total = [0, 1, 2, 3].reduce((sum, index) => sum + Math.max(0, Number(counts[index]) || 0), 0);
+    [0, 1, 2, 3].forEach((index) => {
+      const fill = sceneLayer.querySelector(`[data-trial-bar="${index}"]`);
+      const value = Math.max(0, Number(counts[index]) || 0);
+      const scale = total ? value / total : 0;
+      if (fill && motion) motion.to(fill, { scaleX: scale, duration: .3, ease: 'power3.out' });
+      else if (fill) fill.style.transform = `scaleX(${scale})`;
     });
   }
 
@@ -798,29 +834,26 @@
       const className = index === correctIndex ? 'correct' : 'wrong';
       return `<div class="trial-tile ${className}" data-result-tile="${index}"><span class="tile-rune">${escapeHtml(letter)}</span><span class="tile-copy">${escapeHtml(title)}</span><span class="tile-count">${Math.max(0, Number(data.counts?.[index]) || 0)}</span></div>`;
     }).join('');
-    const users = data.correctUsers || [];
     const leaderboard = data.leaderboard || [];
     const podiumNames = ['first', 'second', 'third'];
     const podium = leaderboard.slice(0, 3).map((user, index) => `<div class="podium-user ${podiumNames[index]}">${index === 0 ? '<span class="crown">\u{1F451}</span>' : ''}${imageTag(user, 'podium-avatar')}<strong>${escapeHtml(user.display_name || user.login)}</strong><small>${Number(user.score) || 0} lore points</small></div>`).join('');
     const rest = leaderboard.slice(3, 5).map((user, index) => `<span>${index + 4}. ${escapeHtml(user.display_name || user.login)} (${Number(user.score) || 0})</span>`).join('');
-    const rain = users.map((user) => imageTag(user)).join('');
-    setSceneMarkup('trial-result-scene', `<div class="trial-banner">\u{2694} THE LORE TRIALS \u{2694}</div><div class="trial-question">${escapeHtml(trial.question || 'Which tale belongs to the archive?')}</div><div class="trial-grid">${tiles}</div><div class="trial-result-panel"><div class="correct-rain" id="correct-rain">${rain}</div><div class="podium" id="podium">${podium || '<div class="podium-user first">No Loremaster this round</div>'}</div><div class="podium-rest">${rest}</div></div>`);
+    setSceneMarkup('trial-result-scene', `<section class="broadcast-panel trial-panel"><h1 class="panel-heading">LORE TRIALS</h1><div class="trial-question">${escapeHtml(trial.question || 'Which tale belongs to the archive?')}</div><div class="trial-grid">${tiles}</div><div class="trial-result-panel"><div class="podium" id="podium">${podium || '<div class="podium-user first">No Loremaster this round</div>'}</div><div class="podium-rest">${rest}</div></div></section>`);
     if (motion) {
-      motion.fromTo('.trial-banner', { y: -120, opacity: 0 }, { y: 0, opacity: 1, duration: .7, ease: 'back.out(2)' });
-      motion.fromTo('.trial-tile', { scaleX: .68, scaleY: .94 }, { scaleX: 1, scaleY: 1, duration: .8, stagger: .08, ease: 'elastic.out(1,.55)' });
-      motion.to('.trial-tile.correct', { scale: 1.08, duration: .4, delay: .8, ease: 'back.out(1.7)' });
+      motion.fromTo('.trial-tile', { scale: .96 }, { scale: 1, duration: .3, stagger: .04, ease: 'power3.out' });
+      motion.to('.trial-tile.correct', { scale: 1.06, duration: .3, delay: .25, ease: 'power3.out' });
       motion.fromTo('.podium-avatar', { y: -120, opacity: 0, scale: .3 }, { y: 0, opacity: 1, scale: 1, duration: .7, stagger: .15, delay: 1.45, ease: 'bounce.out' });
-      motion.fromTo('#correct-rain .avatar-orb', { y: -500, opacity: 0, rotation: -24 }, { y: 0, opacity: 1, rotation: 0, duration: 1, stagger: .12, delay: .45, ease: 'bounce.out' });
       motion.fromTo('#podium', { y: 100, opacity: 0, scale: .78 }, { y: 0, opacity: 1, scale: 1, duration: .9, delay: 1.3, ease: 'back.out(1.6)' });
       motion.fromTo('.podium-rest', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: .6, delay: 2.1 });
       motion.delayedCall(6.8, complete);
-    } else setTimeout(complete, 6800);
+    } else {
+      const resultPanel = sceneLayer.querySelector('.trial-result-panel');
+      if (resultPanel) { resultPanel.style.opacity = '0'; setTimeout(() => { resultPanel.style.opacity = '1'; }, 1300); }
+      setTimeout(complete, 6800);
+    }
     sound.drumroll();
-    hitStopImpact('#b6ff3e');
-    showCallout('CORRECT!', '#b6ff3e');
+    showCallout('CORRECT!', '#f5c451', 1);
     sound.stamp();
-    particles.rain(window.innerWidth / 2, -20, 46);
-    particles.burst(window.innerWidth / 2, window.innerHeight * .38, 'confetti', 100);
   }
 
   function routeMessage(event) {
@@ -868,7 +901,15 @@
     return { login, display_name: displayName };
   }
 
+  function scheduleScenePreview(delay, callback) {
+    const timer = setTimeout(callback, delay);
+    sceneDemoTimers.push(timer);
+    return timer;
+  }
+
   function startSingleScene(name) {
+    sceneDemoTimers.forEach(clearTimeout);
+    sceneDemoTimers.length = 0;
     const titles = ['The Bucket That Knew Too Much', 'The Great Reality Audit', 'The Ladder of Unwise Ambition'];
     const witnesses = [demoUser('maple_mage', 'Maple Mage'), demoUser('bucketbard', 'Bucket Bard'), demoUser('ladderknight', 'Ladder Knight'), demoUser('crabwise', 'Crabwise'), demoUser('real_or_rune', 'Real or Rune'), demoUser('mosskeeper', 'Moss Keeper'), demoUser('starling', 'Starling'), demoUser('runefox', 'Rune Fox'), demoUser('emberowl', 'Ember Owl'), demoUser('moonlit', 'Moonlit')];
     const entry = {
@@ -879,13 +920,21 @@
     };
     switch (name) {
       case 'summon':
-        routeMessage({ type: 'summon', data: { joiners: witnesses.slice(0, 3), needed: 0, endsAt: new Date(Date.now() + 9000).toISOString() } });
+        routeMessage({ type: 'summon', data: { joiners: witnesses.slice(0, 1), needed: 2, endsAt: new Date(Date.now() + 9000).toISOString() } });
+        scheduleScenePreview(1500, () => routeMessage({ type: 'summon', data: { joiners: witnesses.slice(0, 2), needed: 1, endsAt: new Date(Date.now() + 7500).toISOString() } }));
+        scheduleScenePreview(3000, () => routeMessage({ type: 'summon', data: { joiners: witnesses.slice(0, 3), needed: 0, endsAt: new Date(Date.now() + 6000).toISOString() } }));
         break;
       case 'fizzle': routeMessage({ type: 'fizzle', data: {} }); break;
       case 'decipher': routeMessage({ type: 'decipher', data: { summoners: witnesses.slice(0, 3) } }); break;
       case 'vote':
         routeMessage({ type: 'vote_open', data: { titles, endsAt: new Date(Date.now() + 12_000).toISOString() } });
-        routeMessage({ type: 'vote_tally', data: { counts: [5, 8, 3] } });
+        const voteCounts = [0, 0, 0];
+        for (let tick = 1; tick <= 20; tick += 1) {
+          scheduleScenePreview(tick * 500, () => {
+            voteCounts[(tick - 1) % 3] += 1;
+            routeMessage({ type: 'vote_tally', data: { counts: voteCounts } });
+          });
+        }
         break;
       case 'canonized':
         lastTitles = titles;
@@ -898,8 +947,15 @@
         const options = titles.concat('The Crab’s Brief Reign').map((title, index) => ({ letter: ['A', 'B', 'C', 'D'][index], title }));
         latestTrial = { question: 'What phrase marks the channel’s most unbelievable surprises?', options, endsAt: new Date(Date.now() + 8000).toISOString() };
         routeMessage({ type: 'trial_open', data: latestTrial });
-        routeMessage({ type: 'trial_tally', data: { counts: [3, 8, 2, 1] } });
-        sceneDemoTimer = setTimeout(() => routeMessage({
+        const trialCounts = [0, 0, 0, 0];
+        for (let tick = 1; tick <= 12; tick += 1) {
+          scheduleScenePreview(tick * 500, () => {
+            const index = (tick - 1) % 4;
+            trialCounts[index] += index === 1 ? 2 : 1;
+            routeMessage({ type: 'trial_tally', data: { counts: trialCounts } });
+          });
+        }
+        scheduleScenePreview(6500, () => routeMessage({
           type: 'trial_result',
           data: {
             correctIndex: 1,
@@ -912,7 +968,7 @@
               { ...demoUser('real_or_rune', 'Real or Rune'), score: 350 },
             ],
           },
-        }), 2200);
+        }));
         break;
       }
     }
@@ -982,6 +1038,6 @@
     if (heartbeatStop) heartbeatStop();
     if (countdownTimer) clearInterval(countdownTimer);
     if (chipHideTimer) clearTimeout(chipHideTimer);
-    if (sceneDemoTimer) clearTimeout(sceneDemoTimer);
+    sceneDemoTimers.forEach(clearTimeout);
   });
 })();
