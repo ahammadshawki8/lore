@@ -1,6 +1,6 @@
 # LORE
 
-**Every community has lore. Now chat gets to write it.**
+**Turn Twitch moments into legends.**
 
 LORE is a Twitch companion that turns memorable stream moments into community canon. When something legendary happens, chat summons it, names it in a live vote, and canonizes it as a collectible card with a real Twitch clip. Newcomers get initiated into the joke, regulars compete in Lore Trials, and every entry lives on in a public archive.
 
