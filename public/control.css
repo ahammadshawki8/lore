@@ -14,3 +14,15 @@ button,input,textarea { font:inherit; }.control-top { height:74px;display:flex;a
 .monitor-note { margin: 10px 0 0; color: #948c9d; font-size: 11px; }
 .preview-panel .live-tag { text-decoration: none; }
 @media (max-width: 620px) { .preview-panel { grid-column: auto; } }
+
+.quick-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 18px; padding: 0; list-style: none; }
+.quick-guide li { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(145deg, #1d1830, #13101d); }
+.quick-guide b { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #f5c451; color: #160c04; font-size: 13px; }
+.quick-guide strong { display: block; margin-bottom: 3px; font-size: 13px; color: #f1ecfa; }
+.quick-guide span { color: #a9a2b8; font-size: 12px; line-height: 1.45; }
+.quick-guide code { padding: 1px 6px; border-radius: 5px; background: rgba(145,70,255,.2); color: #e4d6ff; font-size: 11px; }
+.quick-guide em { color: #d9b4ff; font-style: normal; font-weight: 700; }
+@media (max-width: 900px) { .quick-guide { grid-template-columns: 1fr; } }
+
+.dashboard-grid { grid-auto-flow: row dense; }
+.chat-panel ol { max-height: 300px; min-height: 200px; }
