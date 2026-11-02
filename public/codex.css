@@ -1246,3 +1246,18 @@ button, a { transition-duration: var(--duration-ui); }
   .card-collection { grid-template-columns: minmax(0, 1fr); }
   .lore-card { aspect-ratio: 5 / 7; min-height: 0; }
 }
+
+/* Final polish layer */
+#leaderboard-title { font-size: clamp(26px, 2vw, 34px); letter-spacing: .04em; overflow-wrap: anywhere; }
+.card-collection { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+@media (min-width: 1500px) { .card-collection { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+#leaderboard-title { overflow-wrap: normal; font-size: clamp(24px, 1.7vw, 30px); }
+.card-collection .lore-card h3, .card-collection .card-title { font-size: clamp(18px, 1.15vw, 22px); }
+@media (max-width: 700px) {
+  .archive-header, header.site-header, body > header { grid-template-columns: 1fr !important; text-align: center; }
+  body > header nav, .site-nav, header nav { justify-content: center; flex-wrap: wrap; position: static !important; display: flex; gap: 14px; }
+}
+@media (max-width: 700px) {
+  .topbar { display: flex !important; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+  .topbar nav { position: static !important; display: flex; justify-content: center; gap: 16px; }
+}
