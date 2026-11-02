@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090b18">
+    <title>THE LORE OF THE COMMUNITY</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;900&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/codex.css">
+  </head>
+  <body>
+    <canvas id="sky" aria-label="An interactive constellation of LORE entries"></canvas>
+    <div class="nebula nebula-one" aria-hidden="true"></div><div class="nebula nebula-two" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="/">LORE<span> / ARCHIVE</span></a>
+      <div class="page-heading"><small>THE COMMUNITY'S LIVING MEMORY</small><h1 id="page-title">THE LORE OF THE COMMUNITY</h1></div>
+      <nav><a href="/">Home</a><a href="/overlay.html">Overlay</a><a href="/control.html">Control</a></nav>
+    </header>
+    <main class="archive-layout">
+      <section class="sky-panel" aria-label="Lore constellation">
+        <div class="sky-hint"><span class="legend-dot gold-dot"></span>Living lore <span class="legend-dot silver-dot"></span>Quiet lore <span class="hint-separator">Click a star to open its record</span></div>
+        <div id="star-tooltip" role="status"></div>
+        <div class="empty-state" id="empty-state">The archive is quiet. The next unforgettable moment is waiting.</div>
+      </section>
+      <aside class="leaderboard" aria-labelledby="leaderboard-title">
+        <div class="panel-kicker">THE WATCHERS REMEMBER</div><h2 id="leaderboard-title">LOREMASTERS</h2>
+        <ol id="leaderboard-list"><li class="loading-row">Reading the archive...</li></ol>
+      </aside>
+    </main>
+    <footer class="stats-strip" aria-label="Archive statistics">
+      <div><span>TOTAL LORE</span><strong id="stat-lore">0</strong></div>
+      <div><span>TOTAL INITIATES</span><strong id="stat-initiates">0</strong></div>
+      <div class="oldest-stat"><span>OLDEST LIVING JOKE</span><strong id="stat-oldest">Waiting to be remembered</strong></div>
+    </footer>
+    <div class="card-backdrop" id="card-backdrop" aria-hidden="true"></div>
+    <article class="lore-record" id="lore-record" role="dialog" aria-modal="true" aria-labelledby="record-title" aria-hidden="true">
+      <button class="close-card" id="close-card" type="button" aria-label="Close lore record">?</button>
+      <div class="record-kicker">COMMUNITY CANON <span id="record-number"></span></div>
+      <div class="record-heading"><span class="record-sigil" id="record-sigil">?</span><div><h2 id="record-title"></h2><p id="record-date"></p></div></div>
+      <div class="record-grid">
+        <section class="record-story"><h3>ORIGIN STORY</h3><p id="record-story"></p><h3>WHAT IT MEANS</h3><p id="record-explainer"></p></section>
+        <div class="clip-frame" id="clip-frame"><div class="clip-placeholder" id="clip-placeholder">NO CLIP WAS PRESERVED<br><span>The moment lives in the telling.</span></div></div>
+      </div>
+      <section class="record-witnesses"><h3>WITNESSES</h3><div id="record-witnesses"></div></section>
+      <footer class="record-footer"><span id="record-uses">0 uses</span><span id="record-initiates">0 initiates</span><time id="record-born"></time></footer>
+    </article>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="/codex.js"></script>
+  </body>
+</html>

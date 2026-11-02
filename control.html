@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0b0a14">
+    <title>LORE Control Room</title><link rel="stylesheet" href="/control.css">
+  </head>
+  <body>
+    <header class="control-top"><a href="/" class="wordmark">LORE <span>CONTROL ROOM</span></a><nav><a href="/overlay.html">Open overlay</a><a href="/codex.html">Open Codex</a></nav></header>
+    <main class="control-main">
+      <section class="welcome"><div><div class="eyebrow">STREAMER DASHBOARD</div><h1>Shape the next legend.</h1><p>Start a ritual, tune the pace, and watch chat make history.</p></div><div class="quick-start"><button class="button primary" id="start-summon">Start summon</button><button class="button secondary" id="start-trial">Start trial</button></div></section>
+      <section class="status-grid">
+        <article class="status-card"><span class="eyebrow">TWITCH CONNECTION</span><div class="status-value"><i class="status-light" id="connection-light"></i><strong id="connection-status">Checking connection</strong></div><small id="connection-login">Waiting for channel</small></article>
+        <article class="status-card"><span class="eyebrow">CURRENT RITUAL STATE</span><div class="status-value"><i class="phase-light" id="phase-light"></i><strong id="ritual-phase">Loading state</strong></div><small id="trial-state">No trial running</small></article>
+      </section>
+      <div class="dashboard-grid">
+        <section class="panel chat-panel"><div class="panel-heading"><div><span class="eyebrow">LIVE FROM CHAT</span><h2>Chat feed</h2></div><span class="live-tag">LIVE</span></div><ol id="chat-feed" aria-live="polite"><li class="empty-row">Waiting for chat messages...</li></ol></section>
+        <section class="panel settings-panel"><div class="panel-heading"><div><span class="eyebrow">RITUAL SETTINGS</span><h2>Set the rhythm</h2></div><span id="config-status">Saved</span></div>
+          <label class="range-row"><span>Summon witnesses <b id="summonThreshold-value">3</b></span><input id="summonThreshold" type="range" min="1" max="12" step="1"></label>
+          <label class="range-row"><span>Summon window <b id="summonSeconds-value">20s</b></span><input id="summonSeconds" type="range" min="5" max="90" step="1"></label>
+          <label class="range-row"><span>Vote window <b id="voteSeconds-value">20s</b></span><input id="voteSeconds" type="range" min="5" max="90" step="1"></label>
+          <label class="range-row"><span>Trial window <b id="trialSeconds-value">20s</b></span><input id="trialSeconds" type="range" min="5" max="90" step="1"></label>
+          <div class="setting-note">Changes apply to the next ritual or trial.</div>
+        </section>
+        <section class="panel simulation-panel"><div class="panel-heading"><div><span class="eyebrow">TEST THE RITUAL</span><h2>Simulate a crowd</h2></div></div>
+          <label class="field-label" for="crowd-texts">Chat messages, one per line</label><textarea id="crowd-texts" rows="4" placeholder="!lore&#10;!lore&#10;!lore"></textarea>
+          <label class="field-label users-label" for="crowd-users">Number of fake users</label><input id="crowd-users" class="number-input" type="number" min="1" max="100" value="3">
+          <button class="button primary full-button" id="simulate-crowd">Send simulated messages</button>
+          <div class="quick-actions"><button class="button small" id="simulate-summoners">Simulate 3 summoners</button><button class="button small" id="simulate-votes">Simulate votes</button><button class="button small" id="simulate-answers">Simulate trial answers</button><button class="button small" id="simulate-newcomer">Simulate newcomer question</button></div>
+          <p class="action-message" id="action-message" role="status"></p>
+        </section>
+        <section class="panel lore-panel"><div class="panel-heading"><div><span class="eyebrow">COMMUNITY CANON</span><h2>The archive</h2></div><span id="lore-count">0 entries</span></div><ol id="lore-list"><li class="empty-row">Loading the archive...</li></ol></section>
+      </div>
+    </main>
+    <script src="/control.js"></script>
+  </body>
+</html>
