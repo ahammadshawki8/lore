@@ -446,9 +446,17 @@
   }
 
   async function load() {
-    const [healthResponse, loreResponse, leadersResponse] = await Promise.all([fetch('/api/health'), fetch('/api/lore'), fetch('/api/loremasters')]);
-    if (!healthResponse.ok || !loreResponse.ok || !leadersResponse.ok) throw new Error('Archive service returned an error');
-    const [health, entries, leaderboard] = await Promise.all([healthResponse.json(), loreResponse.json(), leadersResponse.json()]);
+    let health, entries, leaderboard;
+    try {
+      const [healthResponse, loreResponse, leadersResponse] = await Promise.all([fetch('api/health'), fetch('api/lore'), fetch('api/loremasters')]);
+      if (!healthResponse.ok || !loreResponse.ok || !leadersResponse.ok) throw new Error('Archive service returned an error');
+      [health, entries, leaderboard] = await Promise.all([healthResponse.json(), loreResponse.json(), leadersResponse.json()]);
+    } catch {
+      // Static hosting (GitHub Pages): read the bundled demo archive from a real LORE run.
+      const [loreResponse, leadersResponse] = await Promise.all([fetch('demo/lore.json'), fetch('demo/loremasters.json')]);
+      [entries, leaderboard] = await Promise.all([loreResponse.json(), leadersResponse.json()]);
+      health = { login: 'ahammadshawki8' };
+    }
     const channel = String(health.login || 'THE COMMUNITY').toUpperCase();
     document.title = `THE LORE OF ${channel}`; byId('page-title').textContent = `THE LORE OF ${channel}`;
     lore = Array.isArray(entries) ? entries : []; leaders = Array.isArray(leaderboard) ? leaderboard : [];

@@ -2,10 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0b0a14">
-    <title>LORE Control Room</title><link rel="stylesheet" href="/control.css">
+    <title>LORE Control Room</title><link rel="stylesheet" href="control.css">
   </head>
   <body>
-    <header class="control-top"><a href="/" class="wordmark">LORE <span>CONTROL ROOM</span></a><nav><a href="/overlay.html">Open overlay</a><a href="/codex.html">Open Codex</a></nav></header>
+    <header class="control-top"><a href="./" class="wordmark">LORE <span>CONTROL ROOM</span></a><nav><a href="overlay.html">Open overlay</a><a href="codex.html">Open Codex</a></nav></header>
     <main class="control-main">
       <section class="welcome"><div><div class="eyebrow">STREAMER DASHBOARD</div><h1>Shape the next legend.</h1><p>Start a ritual, tune the pace, and watch chat make history.</p></div><div class="quick-start"><button class="button primary" id="start-summon">Start summon</button><button class="button secondary" id="start-trial">Start trial</button></div></section>
       <ol class="quick-guide" aria-label="Quick start">
@@ -19,7 +19,7 @@
       </section>
       <div class="dashboard-grid">
         <section class="panel chat-panel"><div class="panel-heading"><div><span class="eyebrow">LIVE FROM CHAT</span><h2>Chat feed</h2></div><span class="live-tag">LIVE</span></div><ol id="chat-feed" aria-live="polite"><li class="empty-row">Waiting for chat messages...</li></ol></section>
-        <section class="panel preview-panel"><div class="panel-heading"><div><span class="eyebrow">ON STREAM NOW</span><h2>Overlay monitor</h2></div><a class="live-tag" href="/overlay.html" target="_blank" rel="noopener">OPEN</a></div><div class="monitor" id="monitor"><iframe id="monitor-frame" title="Live LORE overlay preview" src="/overlay.html?bg=1"></iframe></div><p class="monitor-note">Exactly what your OBS browser source shows, live.</p></section>
+        <section class="panel preview-panel"><div class="panel-heading"><div><span class="eyebrow">ON STREAM NOW</span><h2>Overlay monitor</h2></div><a class="live-tag" href="overlay.html" target="_blank" rel="noopener">OPEN</a></div><div class="monitor" id="monitor"><iframe id="monitor-frame" title="Live LORE overlay preview" src="overlay.html?bg=1"></iframe></div><p class="monitor-note">Exactly what your OBS browser source shows, live.</p></section>
         <section class="panel settings-panel"><div class="panel-heading"><div><span class="eyebrow">RITUAL SETTINGS</span><h2>Set the rhythm</h2></div><span id="config-status">Saved</span></div>
           <label class="range-row"><span>Summon witnesses <b id="summonThreshold-value">3</b></span><input id="summonThreshold" type="range" min="1" max="12" step="1"></label>
           <label class="range-row"><span>Summon window <b id="summonSeconds-value">20s</b></span><input id="summonSeconds" type="range" min="5" max="90" step="1"></label>
@@ -37,7 +37,9 @@
         <section class="panel lore-panel"><div class="panel-heading"><div><span class="eyebrow">COMMUNITY CANON</span><h2>The archive</h2></div><span id="lore-count">0 entries</span></div><ol id="lore-list"><li class="empty-row">Loading the archive...</li></ol></section>
       </div>
     </main>
+    <div id="static-note" hidden style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;max-width:720px;padding:14px 20px;border-radius:14px;background:#F5C451;color:#160c04;font:700 14px/1.45 Inter,system-ui,sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.5)">Preview mode: the control room drives a running LORE server. Run <code>npm install</code>, <code>npm run seed</code>, <code>npm start</code> and open <b>localhost:3000/control.html</b> to use it live. The overlay monitor below still plays the demo.</div>
+    <script>fetch('api/health').then(r=>{if(!r.ok)throw 0}).catch(()=>{document.getElementById('static-note').hidden=false;const f=document.getElementById('monitor-frame');if(f)f.src='overlay.html?demo=1&bg=1';});</script>
     <script>(()=>{const m=document.getElementById("monitor"),f=document.getElementById("monitor-frame");if(!m||!f)return;const fit=()=>{f.style.transform=`scale(${m.clientWidth/1920})`;};new ResizeObserver(fit).observe(m);fit();})();</script>
-    <script src="/control.js"></script>
+    <script src="control.js"></script>
   </body>
 </html>
