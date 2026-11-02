@@ -20,12 +20,6 @@
   const newIds = new Set();
   const now = () => Date.now();
 
-  function hash(value) {
-    let result = 2166136261;
-    for (const character of String(value ?? '')) result = Math.imul(result ^ character.charCodeAt(0), 16777619);
-    return result >>> 0;
-  }
-
   function birthTime(entry) {
     const parsed = new Date(entry.born_at || 0).getTime();
     return Number.isFinite(parsed) ? parsed : 0;
@@ -55,9 +49,11 @@
   function layoutStars() {
     const sorted = [...lore].sort((a, b) => birthTime(a) - birthTime(b));
     const padX = Math.min(92, Math.max(45, width * .09));
-    const padY = Math.min(140, Math.max(105, height * .28));
+    const padY = Math.min(90, Math.max(52, height * .18));
     const rangeX = Math.max(1, width - padX * 2);
     const rangeY = Math.max(1, height - padY * 2);
+    const columns = Math.max(1, Math.floor(width / 160));
+    const rows = Math.max(1, Math.ceil(sorted.length / columns));
     sorted.forEach((entry, index) => {
       let star = stars.find((item) => item.entry.id === entry.id);
       if (!star) {
@@ -65,12 +61,12 @@
         stars.push(star);
       }
       star.entry = entry;
-      const seed = hash(entry.id || entry.title);
-      const timePosition = sorted.length < 2 ? .5 : index / (sorted.length - 1);
-      const scatterX = ((seed % 1000) / 1000 - .5) * Math.min(rangeX * .35, 170);
-      const scatterY = (((seed >>> 10) % 1000) / 1000 - .5) * rangeY * .72;
-      star.x = Math.min(width - padX, Math.max(padX, padX + timePosition * rangeX + scatterX));
-      star.y = Math.min(height - padY, Math.max(padY, height / 2 + scatterY));
+      const row = Math.floor(index / columns);
+      const column = index % columns;
+      const columnGap = width / columns;
+      star.x = columnGap * (column + .5);
+      star.y = rows === 1 ? height / 2 : padY + row * (rangeY / (rows - 1));
+      star.labelSide = (row + column) % 2 === 0 ? 'above' : 'below';
       star.radius = Math.min(45, 24 + Math.log1p(Math.max(0, Number(entry.uses) || 0)) * 4);
       star.color = rarityColors[rarityFor(entry)];
       star.sigil = String(entry.sigil || '✧').slice(0, 8);
@@ -138,6 +134,31 @@
       ctx.stroke();
       ctx.setLineDash([]);
     }
+    const labelPlacements = new Map();
+    const occupiedLabels = [];
+    ctx.font = '700 15px Inter, Arial, sans-serif';
+    for (const star of ordered) {
+      const fullTitle = String(star.entry.title || 'Untitled');
+      const label = fullTitle.length > 22 ? `${fullTitle.slice(0, 21).trimEnd()}…` : fullTitle;
+      const labelWidth = Math.min(Math.max(ctx.measureText(label).width + 20, 100), 160, Math.max(100, width - 16));
+      const labelHeight = 32;
+      const labelX = Math.min(width - labelWidth / 2, Math.max(labelWidth / 2, star.x));
+      const sideOrder = star.labelSide === 'above' ? ['above', 'below'] : ['below', 'above'];
+      const candidates = [];
+      for (const side of sideOrder) {
+        for (let offset = 0; offset <= height; offset += labelHeight + 8) {
+          const preferredY = side === 'above' ? star.y - star.radius - 22 : star.y + star.radius + 22;
+          const candidateY = side === 'above' ? preferredY - offset : preferredY + offset;
+          if (candidateY >= labelHeight / 2 + 4 && candidateY <= height - labelHeight / 2 - 4) candidates.push(candidateY);
+        }
+      }
+      const labelY = candidates.find((candidateY) => occupiedLabels.every((box) =>
+        Math.abs(box.x - labelX) >= (box.width + labelWidth) / 2 || Math.abs(box.y - candidateY) >= labelHeight + 4
+      )) ?? candidates[0] ?? Math.min(height - labelHeight / 2 - 4, Math.max(labelHeight / 2 + 4, star.y));
+      const placement = { label, labelWidth, labelHeight, labelX, labelY };
+      labelPlacements.set(star, placement);
+      occupiedLabels.push({ x: labelX, y: labelY, width: labelWidth });
+    }
     for (const star of ordered) {
       const pulse = .94 + Math.sin(time * .0015 + star.phase) * .06;
       const radius = star.radius * pulse;
@@ -162,16 +183,11 @@
       ctx.textBaseline = 'middle';
       ctx.font = `${Math.max(16, radius * .82)}px serif`;
       ctx.fillText(star.sigil, star.x, star.y + 1, radius * 1.6);
-      const fullTitle = String(star.entry.title || 'Untitled');
-      const label = fullTitle.length > 24 ? `${fullTitle.slice(0, 23).trimEnd()}…` : fullTitle;
-      ctx.font = '700 20px Inter, Arial, sans-serif';
-      const labelWidth = Math.min(Math.max(ctx.measureText(label).width + 28, 120), Math.max(120, width * .24));
-      const labelHeight = 40;
-      const labelY = star.y + radius + 26;
+      const { label, labelWidth, labelHeight, labelX, labelY } = labelPlacements.get(star);
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
       ctx.beginPath();
-      ctx.roundRect(star.x - labelWidth / 2, labelY - labelHeight / 2, labelWidth, labelHeight, 12);
+      ctx.roundRect(labelX - labelWidth / 2, labelY - labelHeight / 2, labelWidth, labelHeight, 12);
       ctx.fillStyle = 'rgba(14, 10, 28, .96)';
       ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, .18)';
@@ -179,7 +195,7 @@
       ctx.stroke();
       ctx.fillStyle = '#f7f3ff';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, star.x, labelY, labelWidth - 20);
+      ctx.fillText(label, labelX, labelY, labelWidth - 16);
       ctx.restore();
       if (time < star.burstUntil) {
         const progress = 1 - (star.burstUntil - time) / 1250;
@@ -258,37 +274,38 @@
 
     const edge = document.createElement('div'); edge.className = 'card-edge';
     const meta = document.createElement('header'); meta.className = 'card-meta';
-    const number = document.createElement('span'); number.textContent = `LORE #${Number(entry.n) || '?'}`;
     const date = document.createElement('time'); date.textContent = new Date(birthTime(entry) || now()).toLocaleDateString();
-    meta.append(number, date);
+    meta.append(date);
     const art = document.createElement('div'); art.className = 'card-art';
     const sigil = document.createElement('span'); sigil.className = 'sigil-art'; sigil.textContent = entry.sigil || '✧';
-    const caption = document.createElement('span'); caption.className = 'art-caption'; caption.textContent = 'A MOMENT PRESERVED'; art.append(sigil, caption);
+    art.append(sigil);
     const ribbon = document.createElement('div'); ribbon.className = 'card-ribbon';
     const title = document.createElement('h3');
-    const titleWords = String(entry.title || 'A Moment Remembered').trim().split(/\s+/);
-    title.textContent = `${titleWords.slice(0, 5).join(' ')}${titleWords.length > 5 ? '…' : ''}`;
+    title.textContent = entry.title || 'A Moment Remembered';
     ribbon.append(title);
     const copy = document.createElement('div'); copy.className = 'card-copy';
     const story = document.createElement('p'); story.className = 'card-story'; story.textContent = entry.story || 'This moment has not yet been written down.';
-    const explainer = document.createElement('p'); explainer.className = 'card-explainer'; explainer.textContent = entry.explainer || '';
-    copy.append(story, explainer);
+    copy.append(story);
+    if (modal) {
+      const explainer = document.createElement('p'); explainer.className = 'card-explainer'; explainer.textContent = entry.explainer || '';
+      copy.append(explainer);
+    }
     const witnessTitle = document.createElement('div'); witnessTitle.className = 'card-witness-title'; witnessTitle.textContent = `WITNESSES ${(entry.witnesses || []).length}`;
     const witnesses = document.createElement('div'); witnesses.className = 'card-witnesses';
     const witnessList = entry.witnesses || [];
-    witnessList.slice(0, 7).forEach((user) => witnesses.append(imageOrInitial(user)));
-    if (witnessList.length > 7) {
+    witnessList.slice(0, 6).forEach((user) => witnesses.append(imageOrInitial(user)));
+    if (witnessList.length > 6) {
       const overflow = document.createElement('span');
       overflow.className = 'card-witness-avatar witness-overflow';
-      overflow.textContent = `+${witnessList.length - 7}`;
+      overflow.textContent = `+${witnessList.length - 6}`;
       witnesses.append(overflow);
     }
     const foil = document.createElement('div'); foil.className = 'card-foil';
     const footer = document.createElement('footer'); footer.className = 'card-footer';
     const rarityLabel = document.createElement('span'); rarityLabel.textContent = rarity.toUpperCase();
-    const channel = document.createElement('span'); channel.textContent = `THE LORE OF ${String(entry.channel || 'THIS CHANNEL').toUpperCase()}`;
-    footer.append(rarityLabel, channel);
-    card.append(edge, meta, art, ribbon, copy, witnessTitle, witnesses, foil, footer);
+    const number = document.createElement('span'); number.textContent = `LORE #${Number(entry.n) || '?'}`;
+    footer.append(rarityLabel, number);
+    card.append(edge, meta, art, ribbon, copy, ...(modal ? [witnessTitle] : []), witnesses, foil, footer);
     if (isNew) { const fresh = document.createElement('span'); fresh.className = 'new-ribbon'; fresh.textContent = 'NEW!'; card.append(fresh); }
     if (!modal) {
       card.addEventListener('click', () => openRecord(entry, card));
