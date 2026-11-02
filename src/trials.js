@@ -60,6 +60,7 @@ export async function startTrials({
   now = Date.now,
 }) {
   let leaderboard = await loadLeaderboard(leaderboardPath);
+  let currentTrialSeconds = trialSeconds;
   let active = null;
 
   function allowed(message) {
@@ -101,7 +102,7 @@ export async function startTrials({
       const avatar = await chatterAvatar(answer);
       if (active !== trial || trial.cancelled) return;
       const elapsed = Math.max(0, answer.answeredAt - trial.startedAt);
-      const speedBonus = Math.round(50 * Math.max(0, Math.min(1, 1 - elapsed / (trialSeconds * 1000))));
+      const speedBonus = Math.round(50 * Math.max(0, Math.min(1, 1 - elapsed / (trial.durationSeconds * 1000))));
       const points = 100 + speedBonus;
       const user = {
         login: answer.login,
@@ -189,11 +190,13 @@ export async function startTrials({
     options.splice(correctIndex, 0, chosenLore.title);
     const question = chosenLore.trial?.question || `Which lore was born when: ${chosenLore.story}?`;
     const startedAt = now();
-    const endsAt = new Date(startedAt + trialSeconds * 1000).toISOString();
+    const durationSeconds = currentTrialSeconds;
+    const endsAt = new Date(startedAt + durationSeconds * 1000).toISOString();
     active = {
       answers: new Map(),
       correctIndex,
       startedAt,
+      durationSeconds,
       finishing: false,
       openedBy: message.login,
       interval: null,
@@ -207,7 +210,7 @@ export async function startTrials({
     const prompt = `Lore Trial: ${question} ${options.map((title, index) => `${LETTERS[index]}) ${title}`).join(' | ')} Reply A, B, C, or D!`;
     void sendChat(prompt).catch((error) => console.error(`[trials] Could not send trial question: ${error.message}`));
     active.interval = setInterval(sendTally, 500);
-    active.timeout = setTimeout(() => void endTrial(), trialSeconds * 1000);
+    active.timeout = setTimeout(() => void endTrial(), durationSeconds * 1000);
   }
 
   function onMessage(message) {
@@ -230,6 +233,15 @@ export async function startTrials({
   chatEvents.on('message', onMessage);
   return {
     getLeaderboard: () => leaderboard,
+    getConfig: () => ({ trialSeconds: currentTrialSeconds }),
+    updateConfig(changes = {}) {
+      if (changes.trialSeconds !== undefined) {
+        const value = Number(changes.trialSeconds);
+        if (!Number.isFinite(value) || value <= 0) throw new Error('trialSeconds must be a positive number');
+        currentTrialSeconds = value;
+      }
+      return { trialSeconds: currentTrialSeconds };
+    },
     getState: () => ({ active: Boolean(active) }),
     cancelForRitual() {
       if (!active) return;

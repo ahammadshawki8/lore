@@ -32,6 +32,7 @@ const ritual = await startRitualEngine({
   streamer: () => twitchState.login,
   onPhaseChange: ({ phase }) => {
     if (phase !== 'IDLE') trialEngine?.cancelForRitual();
+    broadcast('ritual_state', { phase });
   },
 });
 const initiation = await startInitiation({
@@ -100,10 +101,19 @@ app.post('/api/simulate/crowd', async (request, response) => {
 });
 
 app.route('/api/config')
-  .get((_request, response) => response.json(ritual.getConfig()))
+  .get((_request, response) => response.json({ ...ritual.getConfig(), ...trialEngine.getConfig() }))
   .post((request, response) => {
     try {
-      response.json(ritual.updateConfig(request.body ?? {}));
+      const changes = request.body ?? {};
+      for (const key of ['summonThreshold', 'summonSeconds', 'voteSeconds', 'trialSeconds']) {
+        if (changes[key] === undefined) continue;
+        const value = Number(changes[key]);
+        if (!Number.isFinite(value) || value <= 0) throw new Error(`${key} must be a positive number`);
+        changes[key] = value;
+      }
+      const ritualConfig = ritual.updateConfig(changes);
+      const trialConfig = trialEngine.updateConfig(changes);
+      response.json({ ...ritualConfig, ...trialConfig });
     } catch (error) {
       response.status(400).json({ error: error.message });
     }
@@ -111,6 +121,27 @@ app.route('/api/config')
 
 app.get('/api/lore', (_request, response) => response.json(ritual.getLore()));
 app.get('/api/loremasters', (_request, response) => response.json(trialEngine.getLeaderboard()));
+app.get('/api/state', (_request, response) => response.json({ ritual: ritual.getState(), trial: trialEngine.getState() }));
+
+app.post('/api/control/summon', (_request, response) => {
+  simulateMessage('streamer_control', '!lore');
+  response.json({ ok: true, state: ritual.getState() });
+});
+
+app.post('/api/control/trial', (_request, response) => {
+  simulateMessage('streamer_control', '!trial');
+  response.json({ ok: true, state: trialEngine.getState() });
+});
+
+app.delete('/api/lore/:id', async (request, response) => {
+  try {
+    const deleted = await ritual.deleteLore(request.params.id);
+    if (!deleted) { response.status(404).json({ error: 'Lore entry not found' }); return; }
+    response.json({ ok: true, id: request.params.id });
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
 
 server.on('upgrade', (request, socket, head) => {
   if (request.url !== '/ws') {

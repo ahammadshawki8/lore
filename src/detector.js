@@ -28,6 +28,8 @@ export function startDetector({ chatEvents, broadcast, dataPath = 'data/lore.jso
       for (const entry of entries) {
         if (entry.phrase && loreMatch(message.text, entry.phrase)) {
           entry.uses = (entry.uses ?? 0) + 1;
+          entry.last_used_at = new Date(at).toISOString();
+          broadcast('lore_updated', entry);
           changed = true;
         }
       }

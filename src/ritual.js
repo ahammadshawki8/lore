@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { draft } from './lorekeeper.js';
 import { loadLore, saveLore } from './storage.js';
 
-const DEFAULT_CONFIG = { summonThreshold: 3, summonSeconds: 20, voteSeconds: 20 };
+const DEFAULT_CONFIG = { summonThreshold: 3, summonSeconds: 20, voteSeconds: 20, trialSeconds: 20 };
 
 export async function startRitualEngine({
   chatEvents,
@@ -268,6 +268,14 @@ export async function startRitualEngine({
     getConfig,
     updateConfig,
     getLore: () => entries,
+    async deleteLore(id) {
+      const index = entries.findIndex((entry) => String(entry.id) === String(id));
+      if (index < 0) return false;
+      const [removed] = entries.splice(index, 1);
+      await saveLore(entries, dataPath);
+      broadcast('lore_deleted', { id: removed.id });
+      return true;
+    },
     getState: () => ({ phase, queued: queue.length }),
     stop() {
       chatEvents.off('message', onMessage);
