@@ -19,6 +19,7 @@
   let latestTrialCounts = [0, 0, 0, 0];
   let socket = null;
   let reconnectDelay = 500;
+  let reconnectTimer = null;
   let heartbeatStop = null;
   let scrambleInterval = null;
   let chipHideTimer = null;
@@ -545,7 +546,7 @@
       if (combo) { combo.textContent = known.size === 1 ? '+1' : `${known.size}x ${known.size >= 3 ? 'SUMMONED!' : 'COMBO'}`; combo.classList.add('is-visible'); if (motion) motion.fromTo(combo, { scaleX: .72, scaleY: 1.32 }, { scaleX: 1, scaleY: 1, duration: .42, ease: 'elastic.out(1,.4)', overwrite: true }); }
     });
     if (joiners.length) safeTween(byId('summoning-circle'), { filter: `drop-shadow(0 0 ${20 + joiners.length * 8}px #3ee6ff) drop-shadow(0 0 ${35 + joiners.length * 14}px #f5c451)`, duration: .45 });
-    if (motion && joiners.length) { motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core']); const speed = Math.max(6, 50 / joiners.length); motion.to('#rune-ring-a', { rotation: 360, duration: speed, repeat: -1, ease: 'none' }); motion.to('#sigil-hex', { rotation: 360, duration: Math.max(5, speed * .55), repeat: -1, ease: 'none' }); motion.to('#sigil-triangle', { rotation: -360, duration: Math.max(5, speed * .72), repeat: -1, ease: 'none' }); motion.to('#sigil-core', { scale: 1.12, duration: Math.max(.35, 1.2 / joiners.length), yoyo: true, repeat: -1, ease: 'sine.inOut' }); }
+    if (motion && joiners.length) { motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core']); const speed = Math.max(6, 50 / joiners.length); motion.to('#rune-ring-a', { rotation: 360, duration: speed, repeat: -1, ease: 'none' }); motion.to('#sigil-hex', { rotation: 360, svgOrigin: '350 350', duration: Math.max(5, speed * .55), repeat: -1, ease: 'none' }); motion.to('#sigil-triangle', { rotation: -360, svgOrigin: '350 350', duration: Math.max(5, speed * .72), repeat: -1, ease: 'none' }); motion.to('#sigil-core', { scale: 1.12, duration: Math.max(.35, 1.2 / joiners.length), yoyo: true, repeat: -1, ease: 'sine.inOut' }); }
     if (needed === 0 && !slots.dataset.threshold) {
       slots.dataset.threshold = '1';
       hitStopImpact('#f5c451');
@@ -574,7 +575,7 @@
     if (motion) {
       const timeline = motion.timeline();
       timeline.fromTo(byId('summoning-circle'), { y: 420, scale: .72, opacity: 0, rotation: -5 }, { y: 0, scale: 1, opacity: 1, rotation: 0, duration: 1.35, ease: 'back.out(1.35)' }, 0)
-        .fromTo('.sigil-geometry', { opacity: 0, scale: .7 }, { opacity: .82, scale: 1, duration: 1, stagger: .16, ease: 'back.out(1.5)' }, .4);
+        .fromTo('.sigil-geometry', { opacity: 0, scale: .7 }, { opacity: .82, scale: 1, svgOrigin: '350 350', duration: 1, stagger: .16, ease: 'back.out(1.5)' }, .4);
       motion.to('#rune-ring-a', { rotation: 360, duration: 50, repeat: -1, ease: 'none' });
       byId('summon-countdown').style.strokeDasharray = '2123.7';
       motion.to('#summon-countdown', { strokeDashoffset: 2130, duration: Math.max(.2, (new Date(data.endsAt || Date.now() + 20000).getTime() - Date.now()) / 1000), ease: 'none' });
@@ -803,7 +804,7 @@
     setSceneMarkup('trial-result-scene', `<div class="trial-banner">\u{2694} THE LORE TRIALS \u{2694}</div><div class="trial-question">${escapeHtml(trial.question || 'Which tale belongs to the archive?')}</div><div class="trial-grid">${tiles}</div><div class="trial-result-panel"><div class="correct-rain" id="correct-rain">${rain}</div><div class="podium" id="podium">${podium || '<div class="podium-user first">No Loremaster this round</div>'}</div><div class="podium-rest">${rest}</div></div>`);
     if (motion) {
       motion.fromTo('.trial-banner', { y: -120, opacity: 0 }, { y: 0, opacity: 1, duration: .7, ease: 'back.out(2)' });
-      motion.fromTo('.trial-tile', { rotationY: 0, scale: .92 }, { rotationY: 360, scale: 1, duration: .8, stagger: .08, ease: 'back.out(1.4)' });
+      motion.fromTo('.trial-tile', { scaleX: .68, scaleY: .94 }, { scaleX: 1, scaleY: 1, duration: .8, stagger: .08, ease: 'elastic.out(1,.55)' });
       motion.to('.trial-tile.correct', { scale: 1.08, duration: .4, delay: .8, ease: 'back.out(1.7)' });
       motion.fromTo('.podium-avatar', { y: -120, opacity: 0, scale: .3 }, { y: 0, opacity: 1, scale: 1, duration: .7, stagger: .15, delay: 1.45, ease: 'bounce.out' });
       motion.fromTo('#correct-rain .avatar-orb', { y: -500, opacity: 0, rotation: -24 }, { y: 0, opacity: 1, rotation: 0, duration: 1, stagger: .12, delay: .45, ease: 'bounce.out' });
@@ -828,24 +829,35 @@
     enqueue(event.type, event.data || {});
   }
 
+  function scheduleReconnect() {
+    if (demoMode || reconnectTimer) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, reconnectDelay);
+    reconnectDelay = Math.min(8000, reconnectDelay * 1.7);
+  }
+
   function connect() {
-    if (demoMode || socket) return;
+    if (demoMode || socket || reconnectTimer) return;
     try {
-      socket = new WebSocket(`ws://${location.host}/ws`);
-      socket.addEventListener('open', () => { reconnectDelay = 500; });
-      socket.addEventListener('message', (message) => {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const nextSocket = new WebSocket(`${protocol}//${location.host}/ws`);
+      socket = nextSocket;
+      nextSocket.addEventListener('open', () => { reconnectDelay = 500; });
+      nextSocket.addEventListener('message', (message) => {
+        if (socket !== nextSocket) return;
         try { routeMessage(JSON.parse(message.data)); } catch { /* Ignore malformed server frames. */ }
       });
-      socket.addEventListener('close', () => {
+      nextSocket.addEventListener('close', () => {
+        if (socket !== nextSocket) return;
         socket = null;
-        setTimeout(connect, reconnectDelay);
-        reconnectDelay = Math.min(8000, reconnectDelay * 1.7);
+        scheduleReconnect();
       });
-      socket.addEventListener('error', () => socket?.close());
+      nextSocket.addEventListener('error', () => nextSocket.close());
     } catch {
       socket = null;
-      setTimeout(connect, reconnectDelay);
-      reconnectDelay = Math.min(8000, reconnectDelay * 1.7);
+      scheduleReconnect();
     }
   }
 
