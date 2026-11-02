@@ -2,6 +2,7 @@ import { loadLore, saveLore } from './storage.js';
 
 const WINDOW_MS = 30_000;
 const BASELINE_MS = 10 * 60_000;
+const RECALL_COOLDOWN_MS = 60_000;
 
 function normalize(text) {
   return String(text ?? '').toLowerCase().replace(/https?:\/\/\S+/g, '').replace(/[^\p{L}\p{N}_ ]/gu, ' ').replace(/\s+/g, ' ').trim();
@@ -15,6 +16,8 @@ function loreMatch(text, phrase) {
 
 export function startDetector({ chatEvents, broadcast, dataPath = 'data/lore.json', getLore = () => loadLore(dataPath), save = (entries) => saveLore(entries, dataPath), now = Date.now }) {
   const messages = [];
+  const recallUses = new Map();
+  const recallCooldowns = new Map();
   let saveTimer;
 
   function onMessage(message) {
@@ -27,10 +30,24 @@ export function startDetector({ chatEvents, broadcast, dataPath = 'data/lore.jso
       let changed = false;
       for (const entry of entries) {
         if (entry.phrase && loreMatch(message.text, entry.phrase)) {
-          entry.uses = (entry.uses ?? 0) + 1;
+          entry.uses = (Number(entry.uses) || 0) + 1;
           entry.last_used_at = new Date(at).toISOString();
           broadcast('lore_updated', entry);
           changed = true;
+
+          const loreId = String(entry.id ?? entry.n ?? entry.phrase);
+          const chatter = String(message.user_id || message.login || '').toLowerCase();
+          if (chatter) {
+            let users = recallUses.get(loreId);
+            if (!users) recallUses.set(loreId, users = new Map());
+            for (const [login, usedAt] of users) if (usedAt < at - WINDOW_MS) users.delete(login);
+            users.set(chatter, at);
+            const lastRecall = recallCooldowns.get(loreId) ?? -Infinity;
+            if (users.size >= 3 && at - lastRecall >= RECALL_COOLDOWN_MS) {
+              recallCooldowns.set(loreId, at);
+              broadcast('recall', { lore: { ...entry }, uses: entry.uses });
+            }
+          }
         }
       }
       if (changed) {

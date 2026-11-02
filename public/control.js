@@ -32,8 +32,8 @@
     const list=byId('lore-list');list.replaceChildren();byId('lore-count').textContent=`${loreCache.length} ${loreCache.length===1?'entry':'entries'}`;
     if(!loreCache.length){const empty=document.createElement('li');empty.className='empty-row';empty.textContent='No canonized lore yet';list.append(empty);return;}
     [...loreCache].sort((a,b)=>(Number(b.n)||0)-(Number(a.n)||0)).forEach(entry=>{
-      const row=document.createElement('li');row.className='lore-row';const info=document.createElement('div');info.className='lore-info';const title=document.createElement('strong');title.textContent=`LORE #${Number(entry.n)||'?'} ? ${entry.title||'Untitled'}`;const meta=document.createElement('small');meta.textContent=`${Number(entry.uses)||0} uses ? ${Number(entry.initiates)||0} initiates`;info.append(title,meta);
-      const remove=document.createElement('button');remove.type='button';remove.className='delete-lore';remove.setAttribute('aria-label',`Delete ${entry.title||'lore entry'}`);remove.textContent='?';remove.addEventListener('click',async()=>{if(!window.confirm(`Delete LORE #${Number(entry.n)||'?'}: ${entry.title||'Untitled'}?`))return;try{await request(`/api/lore/${encodeURIComponent(entry.id)}`,{method:'DELETE'});renderLore(loreCache.filter(item=>item.id!==entry.id));}catch(error){showMessage(error.message,true);}});
+      const row=document.createElement('li');row.className='lore-row';const info=document.createElement('div');info.className='lore-info';const title=document.createElement('strong');title.textContent=`LORE #${Number(entry.n)||'?'} · ${entry.title||'Untitled'}`;const meta=document.createElement('small');meta.textContent=`${Number(entry.uses)||0} uses · ${Number(entry.initiates)||0} initiates`;info.append(title,meta);
+      const remove=document.createElement('button');remove.type='button';remove.className='delete-lore';remove.setAttribute('aria-label',`Delete ${entry.title||'lore entry'}`);remove.textContent='×';remove.addEventListener('click',async()=>{if(!window.confirm(`Delete LORE #${Number(entry.n)||'?'}: ${entry.title||'Untitled'}?`))return;try{await request(`/api/lore/${encodeURIComponent(entry.id)}`,{method:'DELETE'});renderLore(loreCache.filter(item=>item.id!==entry.id));}catch(error){showMessage(error.message,true);}});
       row.append(info,remove);list.append(row);
     });
   }
@@ -66,6 +66,7 @@
         const entry=loreCache[0];if(!entry){showMessage('Canonize some lore first.',true);return;}
         const login=`newcomer_${Date.now()}`;await request('/api/simulate',{method:'POST',body:JSON.stringify({login,text:`what is ${entry.title}?`})});showMessage('A newcomer question was sent.');
       }
+      if(kind==='raid'){await request('/api/simulate/raid',{method:'POST',body:JSON.stringify({from:{login:'visiting_party',display_name:'Visiting Party'},viewers:42})});showMessage('A simulated raid was sent.');}
       await refreshStatus();
     }catch(error){showMessage(error.message,true);}
   }
@@ -77,6 +78,7 @@
   byId('simulate-votes').addEventListener('click',()=>quickSimulation('votes'));
   byId('simulate-answers').addEventListener('click',()=>quickSimulation('answers'));
   byId('simulate-newcomer').addEventListener('click',()=>quickSimulation('newcomer'));
+  byId('simulate-raid').addEventListener('click',()=>quickSimulation('raid'));
   function connect(){if(socket)return;const protocol=location.protocol==='https:'?'wss:':'ws:';socket=new WebSocket(`${protocol}//${location.host}/ws`);socket.addEventListener('message',event=>{let message;try{message=JSON.parse(event.data);}catch{return;}if(message.type==='chat')addChat(message.data||{});if(message.type==='ritual_state')renderState({ritual:message.data});if(message.type==='canonized'){loreCache.push(message.data);renderLore(loreCache);}if(message.type==='lore_updated'){loreCache=loreCache.map(entry=>entry.id===message.data?.id?message.data:entry);renderLore(loreCache);}if(message.type==='initiation'){loreCache=loreCache.map(entry=>entry.id===message.data?.lore?.id?message.data.lore:entry);renderLore(loreCache);}if(message.type==='lore_deleted')renderLore(loreCache.filter(entry=>entry.id!==message.data?.id));});socket.addEventListener('close',()=>{socket=null;setTimeout(connect,2000);});}
   load().catch(error=>showMessage(error.message,true));connect();setInterval(refreshStatus,5000);
 })();

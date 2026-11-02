@@ -3,12 +3,13 @@ import express from 'express';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { chatEvents, connectTwitch, createClip, getStream, getUsers, sendChat, twitchState, disconnectTwitch } from './twitch.js';
+import { chatEvents, raidEvents, connectTwitch, createClip, getStream, getUsers, sendChat, twitchState, disconnectTwitch } from './twitch.js';
 import { startDetector } from './detector.js';
 import { startInitiation } from './initiation.js';
 import { startRitualEngine } from './ritual.js';
 import { saveLore } from './storage.js';
 import { startTrials } from './trials.js';
+import { createRaidHandler } from './raid.js';
 
 const app = express();
 const server = createServer(app);
@@ -56,6 +57,8 @@ const stopDetector = startDetector({
   getLore: ritual.getLore,
   save: (entries) => saveLore(entries),
 });
+const handleRaid = createRaidHandler({ sendChat, broadcast, getUsers, getLore: ritual.getLore });
+raidEvents.on('raid', handleRaid);
 
 function simulateMessage(login, text, index = 1) {
   const displayName = login.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -98,6 +101,27 @@ app.post('/api/simulate/crowd', async (request, response) => {
     if (delayMs && index < texts.length - 1) await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
   response.json({ ok: true, injected: texts.length, users: Number(users) });
+});
+
+app.post('/api/simulate/raid', (request, response) => {
+  const { from, viewers = 24 } = request.body ?? {};
+  const source = typeof from === 'string' ? { display_name: from } : from;
+  const count = Number(viewers);
+  if (!source || typeof source !== 'object' || !Number.isInteger(count) || count < 0) {
+    response.status(400).json({ error: 'from and a non-negative integer viewers count are required' });
+    return;
+  }
+  const displayName = String(source.display_name || source.displayName || source.login || '').trim();
+  if (!displayName) {
+    response.status(400).json({ error: 'from must include a channel name' });
+    return;
+  }
+  const login = String(source.login || displayName.toLowerCase().replace(/[^a-z0-9_]/g, '_')).trim();
+  raidEvents.emit('raid', {
+    from: { login, display_name: displayName, avatar: typeof source.avatar === 'string' ? source.avatar : null },
+    viewers: count,
+  });
+  response.json({ ok: true, from: displayName, viewers: count });
 });
 
 app.route('/api/config')
@@ -165,6 +189,7 @@ chatEvents.on('message', (message) => {
 
 server.on('close', () => {
   stopDetector();
+  raidEvents.off('raid', handleRaid);
   initiation.stop();
   trialEngine.stop();
   ritual.stop();

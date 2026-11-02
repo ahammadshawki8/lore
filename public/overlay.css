@@ -283,6 +283,43 @@ button { font: inherit; }
   .trial-tile .tile-rune { width: 44px; height: 44px; }
 }
 
+/* Raid welcome and lore recall broadcast zones */
+.raid-banner { position: absolute; z-index: 11; left: 50%; bottom: 7%; display: flex; align-items: center; gap: 16px; width: min(920px, 88vw); padding: 14px 22px; opacity: 0; transform: translate(-50%, 32px); border: 1px solid #f5c451a8; border-radius: 14px; background: linear-gradient(100deg, #100b19f2, #30203deF 48%, #100b19f2); box-shadow: 0 14px 42px #0009, inset 0 0 24px #f5c45119; transition: opacity .35s ease, transform .45s cubic-bezier(.2,.8,.2,1); }
+.raid-banner.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.raid-avatar-wrap { flex: 0 0 54px; width: 54px; height: 54px; display: grid; place-items: center; overflow: hidden; border: 2px solid var(--gold); border-radius: 50%; background: #251833; color: var(--gold); font: 800 22px var(--display); }
+.raid-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.raid-banner-copy { display: grid; gap: 1px; }
+.raid-banner-copy small { color: var(--gold); font: 800 12px/1.2 var(--serif); letter-spacing: .2em; }
+.raid-banner-copy strong { color: var(--parchment); font: 800 clamp(20px, 2vw, 28px)/1.2 var(--display); }
+.raid-banner-copy > span { color: #d3c4e0; font: 600 14px/1.2 var(--serif); }
+.raid-panel { position: absolute; z-index: 10; top: 150px; right: 54px; width: min(370px, 30vw); padding: 16px; opacity: 0; transform: translateX(24px); border: 1px solid #f5c45177; border-radius: 14px; background: linear-gradient(145deg, #171020f5, #0c0914f5); box-shadow: 0 14px 42px #0009, inset 0 0 24px #9146ff20; transition: opacity .35s ease, transform .4s cubic-bezier(.2,.8,.2,1); }
+.raid-panel.is-visible { opacity: 1; transform: translateX(0); }
+.raid-panel-heading { margin-bottom: 12px; color: var(--gold); font: 800 13px/1.2 var(--display); letter-spacing: .12em; }
+.raid-lore-card { display: flex; align-items: center; gap: 12px; min-height: 78px; padding: 12px; border: 1px solid #ffffff1a; border-radius: 10px; background: #ffffff08; animation: raidDeal .35s cubic-bezier(.2,.8,.2,1) both; }
+.raid-lore-sigil { flex: 0 0 40px; color: var(--gold); font: 700 30px/1 var(--display); text-align: center; text-shadow: 0 0 16px #f5c45199; }
+.raid-lore-copy { display: grid; min-width: 0; gap: 4px; }
+.raid-lore-copy strong { overflow: hidden; color: var(--parchment); font: 800 15px/1.2 var(--display); text-overflow: ellipsis; white-space: nowrap; }
+.raid-lore-copy span { display: -webkit-box; overflow: hidden; color: #c9bed4; font: 500 12px/1.35 var(--serif); -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+.raid-card-count { display: block; margin-top: 8px; color: #ad9bbb; font: 700 10px/1 var(--serif); letter-spacing: .14em; text-align: right; }
+.raid-empty { margin: 0; color: #c9bed4; font: 500 13px/1.4 var(--serif); }
+@keyframes raidDeal { from { opacity: 0; transform: translateY(12px) rotateX(-8deg); } to { opacity: 1; transform: translateY(0) rotateX(0); } }
+.recall-chip { position: absolute; z-index: 12; top: 96px; right: 54px; display: flex; align-items: center; gap: 10px; width: min(370px, 34vw); padding: 9px 13px; overflow: hidden; opacity: 0; transform: translateY(-8px); border: 1px solid #f5c45180; border-radius: 10px; background: linear-gradient(110deg, #120d1cf2, #2b1c35f2); box-shadow: 0 8px 28px #0008, inset 0 0 14px #f5c45113; transition: opacity .25s ease, transform .25s ease; }
+.recall-chip.is-visible { opacity: 1; transform: translateY(0); }
+.recall-chip:after { position: absolute; inset: 0; content: ''; pointer-events: none; background: linear-gradient(105deg, transparent 28%, #fff5 47%, #f5c45166 52%, transparent 68%); transform: translateX(-120%); }
+.recall-chip.is-visible:after { animation: recallShimmer 1.25s ease-in-out 2; }
+.recall-chip .chip-sigil { flex: 0 0 auto; color: var(--gold); font: 700 22px/1 var(--display); filter: drop-shadow(0 0 8px #f5c451); }
+.recall-copy { display: grid; min-width: 0; gap: 2px; }
+.recall-copy strong { color: var(--gold); font: 800 10px/1.1 var(--serif); letter-spacing: .13em; }
+.recall-title { overflow: hidden; color: var(--parchment); font: 700 13px/1.2 var(--display); text-overflow: ellipsis; white-space: nowrap; }
+.recall-copy small { color: #d6c5a0; font: 600 10px/1.1 var(--serif); }
+@keyframes recallShimmer { to { transform: translateX(120%); } }
+@media (max-width: 700px) {
+  .raid-banner { bottom: 4%; width: 92vw; gap: 12px; padding: 12px 14px; }
+  .raid-avatar-wrap { flex-basis: 44px; width: 44px; height: 44px; }
+  .raid-panel { top: 128px; right: 12px; width: min(340px, 82vw); }
+  .recall-chip { top: 88px; right: 12px; width: min(340px, 82vw); }
+}
+
 
 /* Second review layout polish */
 .summoning-circle { top: 52%; width: min(620px, 60vh); height: min(620px, 60vh); transform: translate(-50%, -50%); }

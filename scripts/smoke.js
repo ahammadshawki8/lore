@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { readFile, unlink } from 'node:fs/promises';
 import { startDetector } from '../src/detector.js';
+import { createRaidHandler } from '../src/raid.js';
 import { startInitiation } from '../src/initiation.js';
 import { fallbackDraft } from '../src/lorekeeper.js';
 import { startRitualEngine } from '../src/ritual.js';
@@ -16,6 +17,56 @@ const chatEvents = new EventEmitter();
 const broadcast = (type, data) => events.push({ type, data });
 const previousApiKey = process.env.OPENAI_API_KEY;
 delete process.env.OPENAI_API_KEY;
+
+const featureEvents = [];
+const featureChats = [];
+const raidHandler = createRaidHandler({
+  sendChat: async (text) => featureChats.push(text),
+  broadcast: (type, data) => featureEvents.push({ type, data }),
+  getUsers: async (logins) => Object.fromEntries(logins.map((login) => [login, `https://example.test/${login}.png`])),
+  getLore: async () => [
+    { id: 'lore-one', title: 'First legend', uses: 2 },
+    { id: 'lore-two', title: 'Most remembered', uses: 12 },
+    { id: 'lore-three', title: 'Second most remembered', uses: 8 },
+    { id: 'lore-four', title: 'Third most remembered', uses: 5 },
+  ],
+});
+await raidHandler({ from: { login: 'visiting_party', display_name: 'Visiting Party' }, viewers: 42 });
+assert.deepEqual(featureChats, ['Welcome raiders from Visiting Party! New here? Type !lore to learn our legends.']);
+const raidEvent = featureEvents.find((event) => event.type === 'raid');
+assert.equal(raidEvent.data.viewers, 42);
+assert.equal(raidEvent.data.from.avatar, 'https://example.test/visiting_party.png');
+assert.deepEqual(raidEvent.data.top.map((entry) => entry.id), ['lore-two', 'lore-three', 'lore-four']);
+
+const recallChat = new EventEmitter();
+const recallEvents = [];
+const recallLore = [{ id: 'recall-lore', title: 'The Dragon Chair', phrase: 'dragon chair', sigil: '✧', uses: 0 }];
+let recallTime = 100_000;
+const stopRecallDetector = startDetector({
+  chatEvents: recallChat,
+  broadcast: (type, data) => recallEvents.push({ type, data }),
+  getLore: async () => recallLore,
+  save: async () => {},
+  now: () => recallTime,
+});
+const mention = (login) => recallChat.emit('message', { login, user_id: login, text: 'dragon chair' });
+const flushDetector = async () => new Promise((resolve) => setImmediate(resolve));
+for (let count = 0; count < 3; count += 1) mention('same_chatter');
+mention('second_chatter');
+mention('third_chatter');
+mention('fourth_chatter');
+await flushDetector();
+const firstRecall = recallEvents.filter((event) => event.type === 'recall');
+assert.equal(firstRecall.length, 1);
+assert.equal(firstRecall[0].data.uses, 5);
+for (const login of ['fifth_chatter', 'sixth_chatter', 'seventh_chatter']) mention(login);
+await flushDetector();
+assert.equal(recallEvents.filter((event) => event.type === 'recall').length, 1);
+recallTime += 61_000;
+for (const login of ['eighth_chatter', 'ninth_chatter', 'tenth_chatter']) mention(login);
+await flushDetector();
+assert.equal(recallEvents.filter((event) => event.type === 'recall').length, 2);
+stopRecallDetector();
 
 const fallbackCase = fallbackDraft({
   streamer: 'TestStreamer',
@@ -182,7 +233,7 @@ try {
   assert.equal(result.data.correctUsers[0].login, 'trial_player');
   assert.equal(result.data.leaderboard[0].login, 'trial_player');
   assert.equal(JSON.parse(await readFile(leaderboardPath, 'utf8'))[0].score, result.data.leaderboard[0].score);
-  console.log('[smoke] Ritual, fuzzy initiation, first-message initiation, and a scored Lore Trial passed.');
+  console.log('[smoke] Raid welcome, distinct-chatter lore recall, rituals, initiations, and Lore Trials passed.');
 } finally {
   engine.stop();
   stopDetector();

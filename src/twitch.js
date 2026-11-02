@@ -7,6 +7,7 @@ const REQUIRED_SCOPES = 'user:read:chat user:write:chat user:bot clips:edit';
 const EVENTSUB_URL = 'wss://eventsub.wss.twitch.tv/ws';
 
 export const chatEvents = new EventEmitter();
+export const raidEvents = new EventEmitter();
 export const twitchState = {
   connected: false,
   login: null,
@@ -73,7 +74,32 @@ async function subscribeToChat(sessionId) {
   });
 }
 
+async function subscribeToRaids(sessionId) {
+  await helix('/eventsub/subscriptions', {
+    method: 'POST',
+    body: JSON.stringify({
+      type: 'channel.raid',
+      version: '1',
+      condition: { to_broadcaster_user_id: twitchState.userId },
+      transport: { method: 'websocket', session_id: sessionId },
+    }),
+  });
+}
+
 function handleNotification(payload) {
+  if (payload.subscription?.type === 'channel.raid') {
+    const event = payload.event;
+    if (!event || event.to_broadcaster_user_id !== twitchState.userId) return;
+    raidEvents.emit('raid', {
+      from: {
+        login: event.from_broadcaster_user_login || '',
+        display_name: event.from_broadcaster_user_name || event.from_broadcaster_user_login || 'Another channel',
+        avatar: null,
+      },
+      viewers: Math.max(0, Number(event.viewers) || 0),
+    });
+    return;
+  }
   const message = payload.event;
   if (payload.subscription?.type !== 'channel.chat.message' || !message) return;
   let cursor = 0;
@@ -147,7 +173,7 @@ function connectSocket(url, isReconnect = false) {
         console.log(`[twitch] EventSub connected${isReconnect ? ' (reconnected)' : ''}.`);
         if (!isReconnect && twitchState.sessionId) {
           try {
-            await subscribeToChat(twitchState.sessionId);
+            await Promise.all([subscribeToChat(twitchState.sessionId), subscribeToRaids(twitchState.sessionId)]);
           } catch (error) {
             twitchState.error = error.message;
             console.error(`[twitch] Could not subscribe to chat: ${error.message}`);

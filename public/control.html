@@ -14,6 +14,7 @@
       </section>
       <div class="dashboard-grid">
         <section class="panel chat-panel"><div class="panel-heading"><div><span class="eyebrow">LIVE FROM CHAT</span><h2>Chat feed</h2></div><span class="live-tag">LIVE</span></div><ol id="chat-feed" aria-live="polite"><li class="empty-row">Waiting for chat messages...</li></ol></section>
+        <section class="panel preview-panel"><div class="panel-heading"><div><span class="eyebrow">ON STREAM NOW</span><h2>Overlay monitor</h2></div><a class="live-tag" href="/overlay.html" target="_blank" rel="noopener">OPEN</a></div><div class="monitor" id="monitor"><iframe id="monitor-frame" title="Live LORE overlay preview" src="/overlay.html?bg=1"></iframe></div><p class="monitor-note">Exactly what your OBS browser source shows, live.</p></section>
         <section class="panel settings-panel"><div class="panel-heading"><div><span class="eyebrow">RITUAL SETTINGS</span><h2>Set the rhythm</h2></div><span id="config-status">Saved</span></div>
           <label class="range-row"><span>Summon witnesses <b id="summonThreshold-value">3</b></span><input id="summonThreshold" type="range" min="1" max="12" step="1"></label>
           <label class="range-row"><span>Summon window <b id="summonSeconds-value">20s</b></span><input id="summonSeconds" type="range" min="5" max="90" step="1"></label>
@@ -25,12 +26,13 @@
           <label class="field-label" for="crowd-texts">Chat messages, one per line</label><textarea id="crowd-texts" rows="4" placeholder="!lore&#10;!lore&#10;!lore"></textarea>
           <label class="field-label users-label" for="crowd-users">Number of fake users</label><input id="crowd-users" class="number-input" type="number" min="1" max="100" value="3">
           <button class="button primary full-button" id="simulate-crowd">Send simulated messages</button>
-          <div class="quick-actions"><button class="button small" id="simulate-summoners">Simulate 3 summoners</button><button class="button small" id="simulate-votes">Simulate votes</button><button class="button small" id="simulate-answers">Simulate trial answers</button><button class="button small" id="simulate-newcomer">Simulate newcomer question</button></div>
+          <div class="quick-actions"><button class="button small" id="simulate-summoners">Simulate 3 summoners</button><button class="button small" id="simulate-votes">Simulate votes</button><button class="button small" id="simulate-answers">Simulate trial answers</button><button class="button small" id="simulate-newcomer">Simulate newcomer question</button><button class="button small" id="simulate-raid">Simulate raid</button></div>
           <p class="action-message" id="action-message" role="status"></p>
         </section>
         <section class="panel lore-panel"><div class="panel-heading"><div><span class="eyebrow">COMMUNITY CANON</span><h2>The archive</h2></div><span id="lore-count">0 entries</span></div><ol id="lore-list"><li class="empty-row">Loading the archive...</li></ol></section>
       </div>
     </main>
+    <script>(()=>{const m=document.getElementById("monitor"),f=document.getElementById("monitor-frame");if(!m||!f)return;const fit=()=>{f.style.transform=`scale(${m.clientWidth/1920})`;};new ResizeObserver(fit).observe(m);fit();})();</script>
     <script src="/control.js"></script>
   </body>
 </html>

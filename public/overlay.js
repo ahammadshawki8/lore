@@ -6,7 +6,7 @@
   const overlay = byId('overlay');
   const query = new URLSearchParams(location.search);
   const demoMode = query.get('demo') === '1';
-  const sceneChoices = new Set(['summon', 'fizzle', 'decipher', 'vote', 'canonized', 'initiation', 'trial']);
+  const sceneChoices = new Set(['summon', 'fizzle', 'decipher', 'vote', 'canonized', 'initiation', 'trial', 'raid', 'recall']);
   const sceneOnly = sceneChoices.has(query.get('scene')) ? query.get('scene') : null;
   const sceneHoldMode = Boolean(sceneOnly);
   const runeGlyphs = ['ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᚷ', 'ᚹ', 'ᚺ', 'ᚾ', 'ᛁ', 'ᛃ', 'ᛇ', 'ᛈ', 'ᛉ', 'ᛊ'];
@@ -27,7 +27,9 @@
   let demoSummonSeen = false;
   let pressureData = { phrase: '', value: 0 };
   const sceneDemoTimers = [];
+  const raidTimers = [];
   let countdownTimer = null;
+  let recallHideTimer = null;
   let currentVoteLeader = null;
   let hitStopTimer = null;
   let collectionCount = 0;
@@ -858,6 +860,8 @@
 
   function routeMessage(event) {
     if (!event || typeof event.type !== 'string') return;
+    if (event.type === 'raid') { renderRaid(event.data || {}); return; }
+    if (event.type === 'recall') { renderRecall(event.data || {}); return; }
     if (event.type === 'trial_result') {
       enqueue(event.type, event.data || {});
       return;
@@ -899,6 +903,91 @@
 
   function demoUser(login, displayName = login) {
     return { login, display_name: displayName };
+  }
+
+  function clearRaidTimers() {
+    raidTimers.forEach(clearTimeout);
+    raidTimers.length = 0;
+  }
+
+  function laterRaid(callback, delay) {
+    const timer = setTimeout(() => {
+      const index = raidTimers.indexOf(timer);
+      if (index >= 0) raidTimers.splice(index, 1);
+      callback();
+    }, delay);
+    raidTimers.push(timer);
+  }
+
+  function renderRaid(data = {}) {
+    clearRaidTimers();
+    const from = data.from || {};
+    const displayName = String(from.display_name || from.displayName || from.login || 'Another channel');
+    const banner = byId('raid-banner');
+    banner.replaceChildren();
+    const avatarWrap = document.createElement('span'); avatarWrap.className = 'raid-avatar-wrap';
+    if (from.avatar) {
+      const avatar = document.createElement('img'); avatar.src = from.avatar; avatar.alt = ''; avatar.loading = 'lazy';
+      avatar.addEventListener('error', () => { avatarWrap.textContent = displayName.charAt(0).toUpperCase(); }, { once: true });
+      avatarWrap.append(avatar);
+    } else avatarWrap.textContent = displayName.charAt(0).toUpperCase();
+    const welcome = document.createElement('span'); welcome.className = 'raid-banner-copy';
+    const label = document.createElement('small'); label.textContent = 'RAID INCOMING';
+    const name = document.createElement('strong'); name.textContent = displayName;
+    const viewers = document.createElement('span'); viewers.textContent = `${Math.max(0, Number(data.viewers) || 0)} raiders`;
+    welcome.append(label, name, viewers);
+    banner.append(avatarWrap, welcome);
+    banner.classList.add('is-visible');
+    banner.setAttribute('aria-hidden', 'false');
+
+    const panel = byId('raid-panel');
+    const slot = byId('raid-card-slot');
+    const entries = Array.isArray(data.top) ? data.top.slice(0, 3) : [];
+    slot.replaceChildren();
+    panel.classList.add('is-visible');
+    panel.setAttribute('aria-hidden', 'false');
+    const showCard = (index) => {
+      slot.replaceChildren();
+      if (!entries.length) {
+        const empty = document.createElement('p'); empty.className = 'raid-empty'; empty.textContent = 'Our legends are being written.'; slot.append(empty); return;
+      }
+      const entry = entries[index];
+      const card = document.createElement('article'); card.className = 'raid-lore-card';
+      const sigil = document.createElement('span'); sigil.className = 'raid-lore-sigil'; sigil.textContent = entry.sigil || '✧';
+      const copy = document.createElement('div'); copy.className = 'raid-lore-copy';
+      const title = document.createElement('strong'); title.textContent = entry.title || 'Untitled legend';
+      const explainer = document.createElement('span'); explainer.textContent = entry.explainer || entry.story || 'A legend kept alive by chat.';
+      copy.append(title, explainer); card.append(sigil, copy); slot.append(card);
+      const counter = document.createElement('span'); counter.className = 'raid-card-count'; counter.textContent = `${String(index + 1).padStart(2, '0')} / ${String(entries.length).padStart(2, '0')}`;
+      slot.append(counter);
+    };
+    showCard(0);
+    laterRaid(() => { banner.classList.remove('is-visible'); banner.setAttribute('aria-hidden', 'true'); }, 2600);
+    if (entries.length > 1) laterRaid(() => showCard(1), 3300);
+    if (entries.length > 2) laterRaid(() => showCard(2), 6600);
+    laterRaid(() => {
+      panel.classList.remove('is-visible');
+      panel.setAttribute('aria-hidden', 'true');
+      banner.classList.remove('is-visible');
+      banner.setAttribute('aria-hidden', 'true');
+    }, 10_000);
+  }
+
+  function renderRecall(data = {}) {
+    const lore = data.lore || {};
+    const chip = byId('recall-chip');
+    chip.replaceChildren();
+    const sigil = document.createElement('span'); sigil.className = 'chip-sigil'; sigil.textContent = lore.sigil || '✧';
+    const copy = document.createElement('span'); copy.className = 'recall-copy';
+    const label = document.createElement('strong'); label.textContent = 'LORE RECALLED';
+    const title = document.createElement('span'); title.className = 'recall-title'; title.textContent = lore.title || 'A living legend';
+    const uses = document.createElement('small'); uses.textContent = `used ${Math.max(0, Number(data.uses ?? lore.uses) || 0)}x`;
+    copy.append(label, title, uses); chip.append(sigil, copy);
+    chip.classList.add('is-visible'); chip.setAttribute('aria-hidden', 'false');
+    if (recallHideTimer) clearTimeout(recallHideTimer);
+    recallHideTimer = setTimeout(() => {
+      chip.classList.remove('is-visible'); chip.setAttribute('aria-hidden', 'true'); recallHideTimer = null;
+    }, 5000);
   }
 
   function scheduleScenePreview(delay, callback) {
@@ -971,6 +1060,12 @@
         }));
         break;
       }
+      case 'raid':
+        routeMessage({ type: 'raid', data: { from: { login: 'maple_mage', display_name: 'Maple Mage' }, viewers: 42, top: [entry, { ...entry, title: titles[0], sigil: '☾', explainer: 'The bucket became the witness.' }, { ...entry, title: titles[2], sigil: '✦', explainer: 'Ambition met an unusually tall ladder.' }] } });
+        break;
+      case 'recall':
+        routeMessage({ type: 'recall', data: { lore: entry, uses: 24 } });
+        break;
     }
   }
 
@@ -979,6 +1074,14 @@
       routeMessage({ type: 'pressure', data: { phrase: 'the bucket', value: .4 } });
       await wait(900);
       routeMessage({ type: 'pressure', data: { phrase: 'chat is this real', value: .88 } });
+      routeMessage({ type: 'raid', data: { from: { login: 'maple_mage', display_name: 'Maple Mage' }, viewers: 42, top: [
+        { title: 'The Great Reality Audit', sigil: '⌕', explainer: 'Chat asks this whenever a moment seems too strange to be true.' },
+        { title: 'The Bucket That Knew Too Much', sigil: '☾', explainer: 'The bucket became the witness.' },
+        { title: 'The Ladder of Unwise Ambition', sigil: '✦', explainer: 'Ambition met an unusually tall ladder.' },
+      ] } });
+      await wait(10_200);
+      routeMessage({ type: 'recall', data: { lore: { title: 'The Great Reality Audit', sigil: '⌕' }, uses: 24 } });
+      await wait(5200);
       const summonStart = Date.now();
       routeMessage({ type: 'summon', data: { joiners: [demoUser('maple_mage', 'Maple Mage')], needed: 2, endsAt: new Date(summonStart + 8500).toISOString() } });
       await wait(750);
@@ -1038,6 +1141,8 @@
     if (heartbeatStop) heartbeatStop();
     if (countdownTimer) clearInterval(countdownTimer);
     if (chipHideTimer) clearTimeout(chipHideTimer);
+    if (recallHideTimer) clearTimeout(recallHideTimer);
+    clearRaidTimers();
     sceneDemoTimers.forEach(clearTimeout);
   });
 })();
