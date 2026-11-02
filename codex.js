@@ -52,7 +52,8 @@
     const padY = Math.min(90, Math.max(52, height * .18));
     const rangeX = Math.max(1, width - padX * 2);
     const rangeY = Math.max(1, height - padY * 2);
-    const columns = Math.max(1, Math.floor(width / 160));
+    const compact = width < 600;
+    const columns = compact ? Math.min(3, Math.max(1, sorted.length)) : Math.max(1, Math.min(sorted.length, Math.floor(width / 190)));
     const rows = Math.max(1, Math.ceil(sorted.length / columns));
     sorted.forEach((entry, index) => {
       let star = stars.find((item) => item.entry.id === entry.id);
@@ -65,9 +66,9 @@
       const column = index % columns;
       const columnGap = width / columns;
       star.x = columnGap * (column + .5);
-      star.y = rows === 1 ? height / 2 : padY + row * (rangeY / (rows - 1));
+      star.y = rows === 1 ? height / 2 + Math.sin(index * 1.7) * Math.min(70, height * .2) : padY + row * (rangeY / (rows - 1));
       star.labelSide = (row + column) % 2 === 0 ? 'above' : 'below';
-      star.radius = Math.min(45, 24 + Math.log1p(Math.max(0, Number(entry.uses) || 0)) * 4);
+      star.radius = Math.min(compact ? 26 : 45, (compact ? 16 : 24) + Math.log1p(Math.max(0, Number(entry.uses) || 0)) * (compact ? 2.5 : 4));
       star.color = rarityColors[rarityFor(entry)];
       star.sigil = String(entry.sigil || '✧').slice(0, 8);
     });
@@ -140,7 +141,8 @@
     for (const star of ordered) {
       const fullTitle = String(star.entry.title || 'Untitled');
       const label = fullTitle.length > 22 ? `${fullTitle.slice(0, 21).trimEnd()}…` : fullTitle;
-      const labelWidth = Math.min(Math.max(ctx.measureText(label).width + 20, 100), 160, Math.max(100, width - 16));
+      ctx.font = '600 15px Inter, system-ui, sans-serif';
+      const labelWidth = Math.min(Math.max(ctx.measureText(label).width + 24, 100), 240, Math.max(100, width - 16));
       const labelHeight = 32;
       const labelX = Math.min(width - labelWidth / 2, Math.max(labelWidth / 2, star.x));
       const sideOrder = star.labelSide === 'above' ? ['above', 'below'] : ['below', 'above'];
@@ -184,6 +186,7 @@
       ctx.font = `${Math.max(16, radius * .82)}px serif`;
       ctx.fillText(star.sigil, star.x, star.y + 1, radius * 1.6);
       const { label, labelWidth, labelHeight, labelX, labelY } = labelPlacements.get(star);
+      if (width < 600) { ctx.restore(); continue; }
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
       ctx.beginPath();
@@ -195,7 +198,9 @@
       ctx.stroke();
       ctx.fillStyle = '#f7f3ff';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, labelX, labelY, labelWidth - 16);
+      ctx.font = '600 15px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, labelX, labelY);
       ctx.restore();
       if (time < star.burstUntil) {
         const progress = 1 - (star.burstUntil - time) / 1250;
