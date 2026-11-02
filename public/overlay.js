@@ -122,7 +122,7 @@
     }
     add(particle) {
       this.particles.push({ age: 0, ...particle });
-      if (this.particles.length > 400) this.particles.splice(0, this.particles.length - 400);
+      if (this.particles.length > 150) this.particles.splice(0, this.particles.length - 150);
     }
     burst(x, y, kind = 'spark', count = 24, color) {
       for (let index = 0; index < count; index += 1) {
@@ -514,7 +514,7 @@
     const joiners = data.joiners || [];
     const needed = Math.max(0, Number(data.needed) || 0);
     const total = joiners.length + needed;
-    caption.textContent = `type !lore to join (${joiners.length}/${total || joiners.length})`;
+    caption.textContent = `TYPE !lore TO JOIN \u00B7 ${joiners.length}/${total || joiners.length}`;
     const known = new Set([...slots.querySelectorAll('[data-login]')].map((node) => node.dataset.login));
     joiners.forEach((user, index) => {
       const key = String(user.login || user.display_name || index);
@@ -638,12 +638,11 @@
     if (motion) {
       motion.set('#tome-wrap', { y: -500, rotationX: 24, scale: .72, opacity: 0 });
       const timeline = motion.timeline({ onComplete: complete });
-      timeline.to('#ray-field', { opacity: .7, duration: .7 }, 0)
-        .to('#tome-wrap', { y: 0, rotationX: 0, scale: 1, opacity: 1, duration: 1.1, ease: 'back.out(1.35)' }, .1)
+      timeline.to('#tome-wrap', { y: 0, rotationX: 0, scale: 1, opacity: 1, duration: 1.1, ease: 'back.out(1.35)' }, .1)
         .to('#tome-cover', { rotateY: -158, duration: 2, ease: 'power3.inOut' }, 1.1)
         .fromTo('.decipher-caption', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: .7 }, 1.6)
         .to('#tome-wrap', { y: -12, duration: .8, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 3.2)
-        .to('#ray-field', { opacity: 0, duration: .8 }, 3.8);
+        .to({}, { duration: .8 }, 3.8);
     } else setTimeout(complete, 4500);
   }
 
@@ -651,8 +650,8 @@
     currentVoteLeader = null;
     lastCountdownSecond = null;
     const titles = data.titles || [];
-    const scrolls = titles.slice(0, 3).map((title, index) => `<article class="vote-scroll" data-index="${index}"><div class="vote-number">${index + 1}</div><div class="vote-howto">type ${index + 1} in chat</div><div class="vote-title">${escapeHtml(title)}</div><div class="vote-count" data-count="${index}">0 witnesses</div><div class="vote-bar-track"><div class="vote-bar-fill" data-bar="${index}"></div></div><div class="vote-percent" data-percent="${index}">0%</div></article>`).join('');
-    setSceneMarkup('vote-scene', `<div class="scene-title vote-heading">THE PEOPLE CHOOSE</div><div class="vote-question">Choose the name that shall be written into canon</div><div class="scroll-row">${scrolls}</div>${makeCountdown('vote-clock-progress', '⌛')}`);
+    const scrolls = titles.slice(0, 3).map((title, index) => `<article class="vote-scroll" data-index="${index}"><div class="vote-number"><span>${index + 1}</span></div><div class="vote-title">${escapeHtml(title)}</div><div class="vote-count" data-count="${index}">0 witnesses</div><div class="vote-percent" data-percent="${index}">0%</div><div class="vote-bar-track"><div class="vote-bar-fill" data-bar="${index}"></div></div></article>`).join('');
+    setSceneMarkup('vote-scene', `<div class="scene-title vote-heading">THE PEOPLE CHOOSE</div><div class="vote-question">TYPE 1, 2 OR 3 IN CHAT</div><div class="scroll-row">${scrolls}</div>${makeCountdown('vote-clock-progress', '⌛')}`);
     if (motion) {
       const timeline = motion.timeline();
       timeline.fromTo('.vote-heading', { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: .8, ease: 'power2.out' }, 0)
@@ -696,14 +695,18 @@
     const rarity = count >= 10 ? 'legendary' : count >= 7 ? 'epic' : count >= 4 ? 'rare' : 'common';
     const rarityName = rarity[0].toUpperCase() + rarity.slice(1);
     const rarityColor = { common: '#c9cdd6', rare: '#3ee6ff', epic: '#ff3ea5', legendary: '#f5c451' }[rarity];
-    const witnessMarkup = witnesses.slice(0, 10).map((user) => `<div class="card-witness">${imageTag(user)}<span>${escapeHtml(user.display_name || user.login || 'witness')}</span></div>`).join('');
+    const visibleWitnesses = witnesses.slice(0, 5);
+    const witnessMarkup = visibleWitnesses.map((user) => `<div class="card-witness">${imageTag(user)}</div>`).join('');
+    const witnessOverflow = count > visibleWitnesses.length ? `<div class="card-witness card-witness-overflow">+${count - visibleWitnesses.length}</div>` : '';
     const sigil = escapeHtml(entry.sigil || '?');
     const loreNumber = Number(entry.n) || 1;
     const story = entry.story || 'A moment became legend, and the community carried it into the archive.';
-    setSceneMarkup('canon-scene', `<div class="card-rays" id="card-rays"></div><div class="card-pack" id="card-pack"><span>${sigil}</span></div><div class="impact-callout rarity-callout" id="rarity-callout">${rarityName.toUpperCase()} LORE!</div><div class="card-wrap" id="card-wrap"><div class="card-shell" id="card-shell"><div class="card-face card-back"><span class="back-sigil">${sigil}</span><b>THE LORE ARCHIVE</b><small>WITNESSED. REMEMBERED. CANON.</small></div><article class="lore-card ${rarity}" style="--rarity-color:${rarityColor}"><div class="card-edge"></div><header class="card-meta"><span>LORE #${loreNumber}</span><time>${escapeHtml(entry.date || (entry.born_at ? new Date(entry.born_at).toLocaleDateString() : new Date().toLocaleDateString()))}</time></header><div class="card-art"><div class="nebula"></div><div class="sigil-art">${sigil}</div><div class="art-caption">A MOMENT PRESERVED</div></div><div class="card-ribbon"><h1 id="card-title">${escapeHtml(randomRunes(Math.max(12, title.length)))}</h1></div><div class="card-copy"><p class="card-story" id="card-story">${escapeHtml(story)}</p><p class="card-explainer">${escapeHtml(entry.explainer || '')}</p></div><div class="card-witness-title">WITNESSES ${count}</div><div class="card-witnesses">${witnessMarkup}</div><div class="card-stamp" id="canon-stamp">CANONIZED</div><div class="card-foil"></div><footer class="card-footer"><span>${rarityName.toUpperCase()}</span><span>THE LORE OF ${escapeHtml(String(entry.channel || 'THIS CHANNEL').toUpperCase())}</span></footer></article></div></div>`);
+    const titleWords = title.trim().split(/\s+/);
+    const displayTitle = `${titleWords.slice(0, 5).join(' ')}${titleWords.length > 5 ? '\u2026' : ''}`;
+    setSceneMarkup('canon-scene', `<div class="card-rays" id="card-rays"></div><div class="card-pack" id="card-pack"><span>${sigil}</span></div><div class="impact-callout rarity-callout" id="rarity-callout">${rarityName.toUpperCase()} LORE!</div><div class="card-wrap" id="card-wrap"><div class="card-shell" id="card-shell"><div class="card-face card-back"><span class="back-sigil">${sigil}</span><b>THE LORE ARCHIVE</b><small>WITNESSED. REMEMBERED. CANON.</small></div><article class="lore-card ${rarity}" style="--rarity-color:${rarityColor}"><div class="card-edge"></div><div class="rarity-pill">${rarityName.toUpperCase()}</div><header class="card-meta"><span>LORE #${loreNumber}</span><time>${escapeHtml(entry.date || (entry.born_at ? new Date(entry.born_at).toLocaleDateString() : new Date().toLocaleDateString()))}</time></header><div class="card-art"><div class="nebula"></div><div class="sigil-art">${sigil}</div><div class="art-caption">A MOMENT PRESERVED</div></div><div class="card-ribbon"><h1 id="card-title">${escapeHtml(randomRunes(Math.max(12, displayTitle.length)))}</h1></div><div class="card-copy"><p class="card-story" id="card-story">${escapeHtml(story)}</p><p class="card-explainer">${escapeHtml(entry.explainer || '')}</p></div><div class="card-witness-title">WITNESSES ${count}</div><div class="card-witnesses">${witnessMarkup}${witnessOverflow}</div><div class="card-stamp" id="canon-stamp">CANONIZED</div><div class="card-foil"></div><footer class="card-footer"><span>${rarityName.toUpperCase()}</span><span>THE LORE OF ${escapeHtml(String(entry.channel || 'THIS CHANNEL').toUpperCase())}</span></footer></article></div></div>`);
     sound.riser();
-    safeTween(byId('ray-field'), { opacity: .8, duration: .6 });
-    safeTween(byId('vignette'), { opacity: .84, duration: .6 });
+    safeTween(byId('ray-field'), { opacity: .25, duration: .6 });
+    safeTween(byId('vignette'), { opacity: .3, duration: .6 });
     const pack = byId('card-pack');
     const wrap = byId('card-wrap');
     const color = rarityColor;
@@ -732,7 +735,7 @@
         .to(pack, { rotation: 17, duration: .08, ease: 'none' })
         .to(pack, { opacity: 0, scale: 1.9, duration: .22, onStart: () => { hitStopImpact(color); sound.boom(); particles.burst(window.innerWidth / 2, window.innerHeight / 2, 'spark', 100, color); particles.burst(window.innerWidth / 2, window.innerHeight / 2, 'confetti', 90); particles.burst(window.innerWidth / 2, window.innerHeight / 2, 'coin', 28); } }, 1.9)
         .to(wrap, { y: 0, scale: 1, rotationY: 0, opacity: 1, duration: .9, ease: 'back.out(1.6)' }, 2.05)
-        .call(() => { startScramble(byId('card-title'), title, 1050); sound.pageFlip(); }, [], 2.55)
+        .call(() => { startScramble(byId('card-title'), displayTitle, 1050); sound.pageFlip(); }, [], 2.55)
         .to('#card-story', { opacity: 1, y: 0, filter: 'blur(0px)', duration: .7 }, 3.05)
         .to('.card-witness', { opacity: 1, y: 0, scale: 1, duration: .45, stagger: .055, ease: 'back.out(1.7)' }, 3.25)
         .to('#rarity-callout', { opacity: 1, scale: 1, rotationX: 0, duration: .55, ease: 'back.out(2)' }, 3.25)
@@ -750,7 +753,7 @@
     const lore = data.lore || {};
     setSceneMarkup('initiation-scene', `<div class="achievement-pill" id="achievement-pill"><div class="achievement-icon">${imageTag(user)}<span class="candle-icon">🕯</span></div><div class="achievement-copy"><b>ACHIEVEMENT UNLOCKED</b><strong>@${escapeHtml(user.display_name || user.login || 'witness')}: Initiated into ${escapeHtml(lore.title || 'The Living Archive')}</strong><small>+1 LORE KNOWN</small></div><i class="achievement-sheen"></i></div>`);
     const avatar = sceneLayer.querySelector('.achievement-icon .avatar-orb');
-    if (motion) motion.fromTo('#achievement-pill', { x: 640, opacity: 0, scale: 1.09 }, { x: 0, opacity: 1, scale: 1.4, duration: .65, ease: 'back.out(1.7)' });
+    if (motion) motion.fromTo('#achievement-pill', { x: 640, opacity: 0, scale: 1.09 }, { x: 0, opacity: 1, scale: 1, duration: .65, ease: 'back.out(1.7)' });
     sound.chime();
     particles.burst(window.innerWidth * .84, window.innerHeight * .84, 'spark', 26, '#f5c451');
     scene.cleanups.push(() => { if (motion) motion.killTweensOf(avatar); });

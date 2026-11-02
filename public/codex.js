@@ -55,7 +55,7 @@
   function layoutStars() {
     const sorted = [...lore].sort((a, b) => birthTime(a) - birthTime(b));
     const padX = Math.min(92, Math.max(45, width * .09));
-    const padY = Math.min(75, Math.max(58, height * .18));
+    const padY = Math.min(140, Math.max(105, height * .28));
     const rangeX = Math.max(1, width - padX * 2);
     const rangeY = Math.max(1, height - padY * 2);
     sorted.forEach((entry, index) => {
@@ -162,11 +162,24 @@
       ctx.textBaseline = 'middle';
       ctx.font = `${Math.max(16, radius * .82)}px serif`;
       ctx.fillText(star.sigil, star.x, star.y + 1, radius * 1.6);
-      ctx.font = '600 9px Cinzel, Georgia, serif';
-      ctx.fillStyle = '#f1e7d5';
-      ctx.shadowColor = '#080611';
-      ctx.shadowBlur = 6;
-      ctx.fillText(String(star.entry.title || 'Untitled'), star.x, star.y + radius + 17, Math.max(76, width * .18));
+      const fullTitle = String(star.entry.title || 'Untitled');
+      const label = fullTitle.length > 24 ? `${fullTitle.slice(0, 23).trimEnd()}…` : fullTitle;
+      ctx.font = '700 20px Inter, Arial, sans-serif';
+      const labelWidth = Math.min(Math.max(ctx.measureText(label).width + 28, 120), Math.max(120, width * .24));
+      const labelHeight = 40;
+      const labelY = star.y + radius + 26;
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.roundRect(star.x - labelWidth / 2, labelY - labelHeight / 2, labelWidth, labelHeight, 12);
+      ctx.fillStyle = 'rgba(14, 10, 28, .96)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, .18)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#f7f3ff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, star.x, labelY, labelWidth - 20);
       ctx.restore();
       if (time < star.burstUntil) {
         const progress = 1 - (star.burstUntil - time) / 1250;
@@ -252,14 +265,24 @@
     const sigil = document.createElement('span'); sigil.className = 'sigil-art'; sigil.textContent = entry.sigil || '✧';
     const caption = document.createElement('span'); caption.className = 'art-caption'; caption.textContent = 'A MOMENT PRESERVED'; art.append(sigil, caption);
     const ribbon = document.createElement('div'); ribbon.className = 'card-ribbon';
-    const title = document.createElement('h3'); title.textContent = entry.title || 'A Moment Remembered'; ribbon.append(title);
+    const title = document.createElement('h3');
+    const titleWords = String(entry.title || 'A Moment Remembered').trim().split(/\s+/);
+    title.textContent = `${titleWords.slice(0, 5).join(' ')}${titleWords.length > 5 ? '…' : ''}`;
+    ribbon.append(title);
     const copy = document.createElement('div'); copy.className = 'card-copy';
     const story = document.createElement('p'); story.className = 'card-story'; story.textContent = entry.story || 'This moment has not yet been written down.';
     const explainer = document.createElement('p'); explainer.className = 'card-explainer'; explainer.textContent = entry.explainer || '';
     copy.append(story, explainer);
     const witnessTitle = document.createElement('div'); witnessTitle.className = 'card-witness-title'; witnessTitle.textContent = `WITNESSES ${(entry.witnesses || []).length}`;
     const witnesses = document.createElement('div'); witnesses.className = 'card-witnesses';
-    (entry.witnesses || []).slice(0, 8).forEach((user) => witnesses.append(imageOrInitial(user)));
+    const witnessList = entry.witnesses || [];
+    witnessList.slice(0, 7).forEach((user) => witnesses.append(imageOrInitial(user)));
+    if (witnessList.length > 7) {
+      const overflow = document.createElement('span');
+      overflow.className = 'card-witness-avatar witness-overflow';
+      overflow.textContent = `+${witnessList.length - 7}`;
+      witnesses.append(overflow);
+    }
     const foil = document.createElement('div'); foil.className = 'card-foil';
     const footer = document.createElement('footer'); footer.className = 'card-footer';
     const rarityLabel = document.createElement('span'); rarityLabel.textContent = rarity.toUpperCase();
