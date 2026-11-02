@@ -310,7 +310,7 @@
   initPressure();
   if (query.get('bg') === '1') {
     const preview = byId('stage-preview');
-    preview.src = '/stage.html';
+    preview.src = 'stage.html';
     preview.hidden = false;
   }
   if (query.get('sound') === '1') {
