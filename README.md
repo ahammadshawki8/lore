@@ -1,30 +1,46 @@
 # LORE
 
-Every community has lore. Now chat gets to write it.
+**Every community has lore. Now chat gets to write it.**
 
-LORE is a Twitch companion that turns memorable chat moments into community canon. Viewers summon moments, help shape their titles through a live vote, and see the winners preserved in a growing archive. Newcomers can discover community references through initiation, while regulars compete in lore trials.
-
-## The Ritual
-
-1. **Summon:** Viewers type `!lore` to gather witnesses around a moment.
-2. **Decipher:** LORE reviews recent chat, creates a clip when Twitch can provide one, and drafts three possible titles. AI-written drafts are optional.
-3. **Vote:** Chat chooses the title by sending `1`, `2`, or `3`.
-4. **Canonize:** The winning title and story become a permanent archive entry, revealed on stream as a collectible LORE card.
-5. **Initiate:** Newcomers can ask what a community reference means or use `!lore <phrase>` to learn its meaning.
-6. **Trials:** A broadcaster or moderator can start a quiz. Chat answers A, B, C, or D, and correct answers earn Loremaster points.
-7. **Recall:** When three chatters repeat a canonized phrase, LORE shows a "Lore recalled" chip so old jokes stay alive.
-8. **Raid welcome:** Incoming raiders get a Twitch-purple raid alert and a panel dealing the channel's top 3 lore cards, with a chat invite to type `!lore`.
-9. **Archive:** The public archive presents entries as a living starmap and a collectible card binder, with stories, real clips, witnesses, usage, and Loremasters.
-
-**Rarity is participation:** every summoner and voter is printed on the card as a witness. 1 to 3 witnesses mint a Common card, 4 to 6 Rare, 7 to 9 Epic, 10+ Legendary.
-
-**Broadcast layout:** graphics live in a right-side panel (summon, trials, raid lore) and a lower third (vote, initiation, raid alert). Only the canonization reveal takes center stage, for a few seconds.
-
-## See it live
+LORE is a Twitch companion that turns memorable stream moments into community canon. When something legendary happens, chat summons it, names it in a live vote, and canonizes it as a collectible card with a real Twitch clip. Newcomers get initiated into the joke, regulars compete in Lore Trials, and every entry lives on in a public archive.
 
 ![LORE canonization card revealed live on Twitch, with the bot posting the auto-created clip in chat](docs/live-on-twitch.jpg)
 
 *A real run on twitch.tv/ahammadshawki8: chat summoned the moment, voted on its name, and LORE canonized it with an auto-created Twitch clip.*
+
+## Try it in one minute (no Twitch account needed)
+
+```bash
+git clone https://github.com/ahammadshawki8/lore && cd lore
+npm install
+npm run seed
+npm start
+```
+
+Then open:
+
+| Page | URL | What it is |
+| --- | --- | --- |
+| Home | `http://localhost:3000` | Landing page with a live overlay preview |
+| Overlay demo | `http://localhost:3000/overlay.html?demo=1&bg=1` | Every scene, looping over the demo game |
+| Control room | `http://localhost:3000/control.html` | Start rituals and trials, tune timers, simulate a crowd |
+| Archive | `http://localhost:3000/codex.html` | Starmap and collectible card binder |
+
+Without Twitch credentials, everything runs locally through the control room simulators.
+
+## The ritual
+
+1. **Summon.** Viewers type `!lore`. Each witness locks onto the summoning circle.
+2. **Name it.** LORE auto-clips the moment, reads recent chat and drafts three names. Chat votes `1`, `2` or `3`.
+3. **Canonize.** The winner is revealed as a collectible LORE card, and the bot posts it in chat with the clip.
+4. **Initiate.** A newcomer asks what a joke means (or types `!lore <phrase>`). LORE explains it with the clip and celebrates the initiation on stream.
+5. **Lore Trials.** The streamer runs a quiz built from the channel's own canon. Fastest correct answers become Loremasters.
+6. **Recall.** When three chatters repeat a canonized phrase, a "Lore recalled" chip keeps the old joke alive.
+7. **Raid welcome.** Raiders get a raid alert and the channel's top 3 lore cards, plus an invite to type `!lore`.
+
+**Rarity is participation.** Every summoner and voter is printed on the card as a witness: 1 to 3 witnesses mint a Common card, 4 to 6 Rare, 7 to 9 Epic, 10+ Legendary.
+
+**Broadcast layout.** Graphics live in a right-side panel (summon, trials, raid lore) and a lower third (vote, initiation, raid alert), so the game stays visible. Only the card reveal takes center stage, for a few seconds.
 
 | Summon (right panel) | Vote (lower third) |
 | --- | --- |
@@ -34,58 +50,70 @@ LORE is a Twitch companion that turns memorable chat moments into community cano
 | **Raid welcome** | **The archive** |
 | ![Raid alert and top lore welcome panel](docs/raid.jpg) | ![Starmap and collectible card binder](docs/archive.jpg) |
 
-![LORE landing page with a live overlay preview](docs/landing.jpg)
+### Chat commands
 
-## Architecture
+| Who | Message | Effect |
+| --- | --- | --- |
+| Anyone | `!lore` | Join (or start) a summoning |
+| Anyone | `1`, `2`, `3` | Vote during the naming vote |
+| Anyone | `!lore <phrase>` | Learn what a lore entry means |
+| Anyone | "what's the bucket thing??" | Natural questions about canon trigger an initiation |
+| Broadcaster or mod | `!trial` | Start a Lore Trial |
+| Anyone | `A`, `B`, `C`, `D` | Answer during a trial |
+
+## Connect your Twitch channel
+
+Requirements: Node.js 20 or newer.
+
+1. Generate a token at [twitchtokengenerator.com](https://twitchtokengenerator.com/) with **Custom Scope Token** and the scopes `user:read:chat user:write:chat user:bot clips:edit`.
+2. Copy `.env.example` to `.env` and set `ACCESS_TOKEN` and `CLIENT_ID`. `OPENAI_API_KEY` is optional, and `PORT` defaults to `3000`.
+3. Run `npm start`. The server validates the token and subscribes to chat and raid events for that channel.
+4. In OBS, add a **Browser Source** with `http://localhost:3000/overlay.html`, 1920 x 1080. Enable **Control audio via OBS** to hear the synthesized sound effects.
+
+Clips are created only while the channel is live. Every ritual still completes without one.
+
+### AI naming
+
+With `OPENAI_API_KEY` set, LORE drafts titles, an origin story, a newcomer explainer and a quiz question with OpenAI. Without a key, a deterministic local drafter picks the phrase chat was repeating and names the moment, so LORE is free to run.
+
+## How it works
 
 ```text
-Twitch EventSub
-      |
-      v
-src/twitch.js -- chat events --> ritual / initiation / trials / detector
-      |                                      |
-      | Helix                                | JSON files in data/
-      v                                      v
-  Twitch API                           LORE archive and scores
-                                             |
-                                             v
-                                  Express API + WebSocket /ws
-                                  /          |           \
-                                 v           v            v
-                            OBS overlay   Control room   Archive page
+Twitch EventSub (chat, raids)
+        |
+        v
+src/twitch.js --> ritual.js / initiation.js / trials.js / detector.js / raid.js
+        |                         |
+        | Helix API               | data/*.json (atomic writes)
+        v                         v
+   chat, clips, users     lore archive, initiates, Loremasters
+                                  |
+                                  v
+                    Express API + WebSocket (/ws)
+                     /            |             \
+               OBS overlay   Control room    Archive page
 ```
 
-### Twitch integration
+**Twitch integration:** EventSub WebSocket (`channel.chat.message`, `channel.raid`), Helix Send Chat Message, Create Clip and Get Clips, Get Users (witness avatars), Get Streams and Channels (stream context).
 
-- EventSub WebSocket subscription to `channel.chat.message`.
-- Helix Send Chat Message (`POST /helix/chat/messages`).
-- Helix Create Clip and clip lookup (`POST /helix/clips`, `GET /helix/clips`). Clip creation is best effort, rituals can continue without a clip.
-- Helix Get Users for chatter profile images.
-- Helix Get Streams and Get Channels for stream context.
-
-## Setup
-
-Requirements: Node.js 20 or newer and npm.
-
-1. Generate a Twitch token with [twitchtokengenerator.com](https://twitchtokengenerator.com/). Choose **Custom Scope Token** and request `user:read:chat user:write:chat user:bot clips:edit`.
-2. Copy `.env.example` to `.env`. Set `ACCESS_TOKEN` and `CLIENT_ID`. `REFRESH_TOKEN` is included as a reference value, `PORT` defaults to `3000`, and `OPENAI_API_KEY` is optional.
-3. Install dependencies with `npm install`.
-4. Add sample lore and Loremasters with `npm run seed`.
-5. Start LORE with `npm start`, then open `http://localhost:3000`.
-
-### OBS Browser Source
-
-Add a Browser Source and set its URL to `http://localhost:3000/overlay.html`. Set the width to **1920** and height to **1080**. Enable **Control audio via OBS** on the source to route overlay sound through OBS. To enable the overlay's sound prompt, add `?sound=1` to the URL.
-
-## AI and offline mode
-
-Set `OPENAI_API_KEY` to let LORE draft titles and stories with OpenAI. Without the key, LORE uses a deterministic local draft and the ritual still works.
-
-To preview without Twitch credentials, start the local server and open `http://localhost:3000/overlay.html?demo=1&bg=1`. The Control room at `http://localhost:3000/control.html` includes simulators for summoners, votes, trial answers, newcomer questions, and custom chat crowds. With no token, Twitch chat announcements and profile lookups are unavailable, but local simulations and archive behavior remain available.
+| Path | Purpose |
+| --- | --- |
+| `src/server.js` | Express API, WebSocket broadcast, simulators |
+| `src/twitch.js` | EventSub connection and Helix helpers |
+| `src/ritual.js` | Summon, decipher, vote and canonize state machine |
+| `src/lorekeeper.js` | AI or offline naming of each moment |
+| `src/initiation.js` | `!lore <phrase>` and newcomer question detection |
+| `src/trials.js` | Lore Trials and the Loremasters leaderboard |
+| `src/detector.js` | Chat pressure and lore recall |
+| `src/raid.js` | Raid welcome |
+| `src/storage.js` | Atomic JSON persistence |
+| `public/` | Overlay, archive, control room, landing page, Bucket Quest demo game |
+| `scripts/seed.js` | Sample lore and Loremasters (`npm run seed`) |
+| `scripts/smoke.js` | Offline end-to-end test (`npm run smoke`) |
 
 ## How we built it with Codex
 
-LORE was built in one Codex thread (Codex CLI, session `01a19d28-4159-73c3-bd36-d3f64e531f16`), one focused prompt at a time. Every prompt is committed in [`codex-prompts/`](codex-prompts/) in order:
+LORE was built in one Codex CLI thread (session `01a19d28-4159-73c3-bd36-d3f64e531f16`), one focused prompt at a time. Every prompt is committed in [`codex-prompts/`](codex-prompts/) in order:
 
 | Step | Prompt | What Codex built |
 | --- | --- | --- |
@@ -99,8 +127,8 @@ LORE was built in one Codex thread (Codex CLI, session `01a19d28-4159-73c3-bd36-
 | 8 | `09` to `11` | Naming fallback after a live test, design system pass, broadcast layout |
 | 9 | `13-raid-welcome-recall` | Raid EventSub welcome and lore recall |
 
-Codex followed project rules kept in [`AGENTS.md`](AGENTS.md), and every step ended with `npm run smoke`, an offline test that plays a full ritual, initiation, trial, recall and raid with stubbed Twitch calls. Between Codex steps we reviewed screenshots of every scene at 1920x1080 and polished layout and readability by hand (for example `public/overlay.polish.css`).
+Codex followed the project rules in [`AGENTS.md`](AGENTS.md), and every step ended with `npm run smoke`, which plays a full ritual, initiation, trial, recall and raid with stubbed Twitch calls. Between Codex steps we reviewed screenshots of every scene at 1920x1080 over real gameplay and polished layout and readability by hand (for example `public/overlay.polish.css`).
 
 ## License
 
-LORE is released under the MIT License. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
