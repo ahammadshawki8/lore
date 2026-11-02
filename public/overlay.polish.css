@@ -1,0 +1,74 @@
+/* LORE overlay: final broadcast polish layer (loaded after overlay.css). */
+
+/* Shared panel surface: fully opaque so gameplay never bleeds through text. */
+.broadcast-panel {
+  background: linear-gradient(180deg, #1a1430 0%, #0e0a1c 100%);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+
+/* SUMMON: keep the counter inside the panel and the sigil centered on the ring. */
+.summon-counter-row { left: 20px; right: 20px; gap: 12px; }
+.summon-witness-counter { font-size: 34px; letter-spacing: -.01em; }
+.summon-combo-display { font-size: 20px; padding: 6px 10px; }
+
+/* VOTE: readable two-line titles, no inner boxes. */
+.vote-title {
+  align-self: center;
+  max-height: none;
+  padding: 0;
+  background: none;
+  border: 0;
+  font: 800 24px/1.18 var(--font-body, Inter, sans-serif);
+  -webkit-line-clamp: 2;
+}
+.vote-percent { font-size: 38px; font-variant-numeric: tabular-nums; }
+.vote-count { font-size: 15px; }
+
+/* CANONIZATION: announcer stays on screen, remove redundant caption. */
+.rarity-callout { top: 50%; padding: 14px 28px; border-radius: 18px; background: rgba(14, 10, 28, .94); }
+.art-caption { display: none; }
+
+/* TRIALS: flowing column so long questions never cover answer A. */
+.trial-panel { display: flex; flex-direction: column; gap: 12px; }
+.trial-panel .panel-heading { margin-bottom: 4px; }
+.trial-panel .trial-question,
+.trial-result-scene .trial-panel .trial-question {
+  position: static;
+  width: auto;
+  min-height: 0;
+  left: auto;
+  top: auto;
+  padding: 14px 16px;
+  font: 700 22px/1.3 var(--font-body, Inter, sans-serif);
+  text-align: left;
+  place-items: start;
+}
+.trial-panel .trial-grid,
+.trial-result-scene .trial-panel .trial-grid {
+  position: static;
+  width: auto;
+  left: auto;
+  top: auto;
+  gap: 8px;
+}
+.trial-panel .trial-tile { min-height: 64px; padding: 10px 12px; grid-template-columns: 44px minmax(0, 1fr) 34px; }
+.trial-panel .trial-tile .tile-rune { width: 44px; height: 44px; font-size: 22px; }
+.trial-panel .trial-tile .tile-copy { font-size: 20px; line-height: 1.2; }
+.trial-result-scene .trial-panel .trial-tile { min-height: 54px; }
+.trial-result-scene .trial-panel .trial-tile .tile-copy { font-size: 18px; }
+.trial-result-scene .trial-tile.correct { transform: scale(1.03); }
+.trial-panel .trial-countdown-track { position: absolute; }
+.trial-result-scene .trial-result-panel { position: relative; left: auto; right: auto; bottom: auto; margin-top: auto; }
+
+/* INITIATION: compact centered lower-third toast. */
+.achievement-pill {
+  left: 50%;
+  right: auto;
+  width: 840px;
+  min-height: 132px;
+  bottom: 72px;
+  transform-origin: center bottom;
+}
+.achievement-copy b { font-size: 16px; letter-spacing: .12em; }
+.achievement-copy strong { font-size: 26px; line-height: 1.25; }

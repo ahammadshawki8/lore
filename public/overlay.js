@@ -519,7 +519,7 @@
       const y = 350 + Math.sin(angle - Math.PI / 2) * 305;
       return `<text class="circle-runes" x="${x.toFixed(2)}" y="${y.toFixed(2)}" transform="rotate(${(angle * 180 / Math.PI + 90).toFixed(1)} ${x.toFixed(2)} ${y.toFixed(2)})">${runeGlyphs[index % runeGlyphs.length]}</text>`;
     }).join('');
-    return `<section class="broadcast-panel summon-panel"><h1 class="panel-heading summon-title">THE SUMMONING</h1><div class="summoning-circle" id="summoning-circle"><svg viewBox="0 0 700 700" aria-hidden="true"><circle class="circle-line" cx="350" cy="350" r="320"></circle><circle class="circle-line dim" cx="350" cy="350" r="294"></circle><circle class="circle-line" cx="350" cy="350" r="260"></circle><g id="rune-ring-a">${chars}</g><g id="sigil-hex" class="sigil-geometry"><polygon points="350,55 605,202 605,498 350,645 95,498 95,202"></polygon></g><g id="sigil-triangle" class="sigil-geometry"><polygon points="350,125 545,485 155,485"></polygon></g><circle id="sigil-core" class="sigil-geometry" cx="350" cy="350" r="125"></circle></svg></div><div id="summon-slots"></div><div class="summon-counter-row"><div class="summon-witness-counter" id="summon-witness-counter">0 / 3 WITNESSES</div><div class="summon-combo-display" id="summon-combo-display" aria-live="polite"></div></div><div class="summon-countdown-track"><span id="summon-countdown-bar"></span></div><div id="summon-caption" class="summon-instruction">Type !lore to join</div></section>`;
+    return `<section class="broadcast-panel summon-panel"><h1 class="panel-heading summon-title">THE SUMMONING</h1><div class="summoning-circle" id="summoning-circle"><svg viewBox="0 0 700 700" aria-hidden="true"><circle class="circle-line" cx="350" cy="350" r="320"></circle><circle class="circle-line dim" cx="350" cy="350" r="294"></circle><circle class="circle-line" cx="350" cy="350" r="260"></circle><g id="rune-ring-a">${chars}</g><g id="sigil-hex" class="sigil-geometry"><polygon points="350,55 605,202 605,498 350,645 95,498 95,202"></polygon></g><g id="sigil-triangle" class="sigil-geometry"><polygon points="350,110 558,470 142,470"></polygon></g><circle id="sigil-core" class="sigil-geometry" cx="350" cy="350" r="125"></circle></svg></div><div id="summon-slots"></div><div class="summon-counter-row"><div class="summon-witness-counter" id="summon-witness-counter">0 / 3 WITNESSES</div><div class="summon-combo-display" id="summon-combo-display" aria-live="polite"></div></div><div class="summon-countdown-track"><span id="summon-countdown-bar"></span></div><div id="summon-caption" class="summon-instruction">Type !lore to join</div></section>`;
   }
 
   function updateSummon(data = {}) {
@@ -568,7 +568,7 @@
       if (combo) { combo.textContent = `x${known.size}`; combo.classList.add('is-visible'); if (motion) motion.fromTo(combo, { scale: .7 }, { scale: 1, duration: .3, ease: 'back.out(1.8)', overwrite: true }); }
     });
     if (joiners.length) safeTween(byId('summoning-circle'), { filter: `drop-shadow(0 0 22px #f5c451)`, duration: .3 });
-    if (motion && joiners.length) { motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core']); const speed = Math.max(6, 50 / joiners.length); motion.to('#rune-ring-a', { rotation: 360, duration: speed, repeat: -1, ease: 'none' }); motion.to('#sigil-hex', { rotation: 360, svgOrigin: '350 350', duration: Math.max(5, speed * .55), repeat: -1, ease: 'none' }); motion.to('#sigil-triangle', { rotation: -360, svgOrigin: '350 350', duration: Math.max(5, speed * .72), repeat: -1, ease: 'none' }); motion.to('#sigil-core', { scale: 1.12, duration: Math.max(.35, 1.2 / joiners.length), yoyo: true, repeat: -1, ease: 'sine.inOut' }); }
+    if (motion && joiners.length) { motion.killTweensOf(['#rune-ring-a', '#sigil-hex', '#sigil-triangle', '#sigil-core']); const speed = Math.max(6, 50 / joiners.length); motion.to('#rune-ring-a', { rotation: 360, svgOrigin: '350 350', duration: speed, repeat: -1, ease: 'none' }); motion.to('#sigil-hex', { rotation: 360, svgOrigin: '350 350', duration: Math.max(5, speed * .55), repeat: -1, ease: 'none' }); motion.to('#sigil-triangle', { rotation: -360, svgOrigin: '350 350', duration: Math.max(5, speed * .72), repeat: -1, ease: 'none' }); motion.to('#sigil-core', { scale: 1.12, svgOrigin: '350 350', duration: Math.max(.35, 1.2 / joiners.length), yoyo: true, repeat: -1, ease: 'sine.inOut' }); }
     if (needed === 0 && !slots.dataset.threshold) {
       slots.dataset.threshold = '1';
       const panel = slots.closest('.summon-panel');
@@ -695,7 +695,7 @@
       if (countNode) countNode.textContent = `${count} ${count === 1 ? 'witness' : 'witnesses'}`;
       if (percentNode) percentNode.textContent = `${percent}%`;
       const leaderBadge = card?.querySelector('.vote-leader-badge');
-      if (leaderBadge) leaderBadge.hidden = !(maximum > 0 && count === maximum);
+      if (leaderBadge) leaderBadge.hidden = !(maximum > 0 && count === maximum && normalized.filter((value) => value === maximum).length === 1);
       if (bar && motion) motion.to(bar, { scaleX: percent / 100, transformOrigin: 'left center', duration: .55, ease: 'power2.out' });
       else if (bar) bar.style.transform = `scaleX(${percent / 100})`;
       if (card) {
@@ -759,8 +759,8 @@
         .call(() => { startScramble(byId('card-title'), displayTitle, 1050); sound.pageFlip(); }, [], 2.55)
         .to('#card-story', { opacity: 1, y: 0, filter: 'blur(0px)', duration: .7 }, 3.05)
         .to('.card-witness', { opacity: 1, y: 0, scale: 1, duration: .45, stagger: .055, ease: 'back.out(1.7)' }, 3.25)
-        .to('#rarity-callout', { opacity: 1, scale: 1, rotationX: 0, duration: .55, ease: 'back.out(2)' }, 3.25)
-        .to('#rarity-callout', { opacity: 0, y: -40, duration: .35 }, 4.45)
+        .to('#rarity-callout', { opacity: 1, scale: 1, rotationX: 0, duration: .35, ease: 'back.out(2)' }, 1.5)
+        .to('#rarity-callout', { opacity: 0, scale: 1.12, duration: .25, ease: 'power2.in' }, 2.15)
         .to('#canon-stamp', { opacity: .92, scale: 1, duration: .55, ease: 'back.out(2.5)', onStart: () => { sound.stamp(); particles.burst(window.innerWidth / 2, window.innerHeight * .5, 'ember', 34, '#ff4d4d'); particles.burst(window.innerWidth / 2, window.innerHeight * .5, 'spark', 22, '#ff4d4d'); } }, 4.65)
         .to(wrap, { rotationY: 3, duration: .5, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 5.3)
         .to({}, { duration: 1.1 }, 7.1)
@@ -783,7 +783,7 @@
     const lore = data.lore || {};
     setSceneMarkup('initiation-scene', `<div class="achievement-pill" id="achievement-pill"><div class="achievement-icon">${imageTag(user)}<span class="candle-icon">🕯</span></div><div class="achievement-copy"><b>ACHIEVEMENT UNLOCKED</b><strong>@${escapeHtml(user.display_name || user.login || 'witness')}: Initiated into ${escapeHtml(lore.title || 'The Living Archive')}</strong><small>+1 LORE KNOWN</small></div><i class="achievement-sheen"></i></div>`);
     const avatar = sceneLayer.querySelector('.achievement-icon .avatar-orb');
-    if (motion) motion.fromTo('#achievement-pill', { x: 640, opacity: 0, scale: .95 }, { x: 0, opacity: 1, scale: 1.2, duration: .4, ease: 'power3.out' });
+    if (motion) motion.fromTo('#achievement-pill', { x: 640, opacity: 0, scale: .95 }, { x: 0, opacity: 1, scale: 1, duration: .45, ease: 'power3.out' });
     sound.chime();
     particles.burst(window.innerWidth * .84, window.innerHeight * .84, 'spark', 26, '#f5c451');
     scene.cleanups.push(() => { if (motion) motion.killTweensOf(avatar); });
