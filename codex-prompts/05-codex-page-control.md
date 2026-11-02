@@ -1,4 +1,4 @@
-Project rules (also in AGENTS.md): the project is named LORE (never "Lore Codex"), and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
+Project rules (also in AGENTS.md): the project is named LORE and its name must remain LORE, and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
 
 Next step: the public LORE archive page (public/codex.html, keep that filename) and the streamer control panel.
 

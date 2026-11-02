@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 
 export async function loadLore(file = 'data/lore.json') {
@@ -11,7 +12,18 @@ export async function loadLore(file = 'data/lore.json') {
   }
 }
 
-export async function saveLore(entries, file = 'data/lore.json') {
+export async function writeJsonAtomic(file, value) {
   await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify(entries, null, 2)}\n`, 'utf8');
+  const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    await rename(temporary, file);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+export async function saveLore(entries, file = 'data/lore.json') {
+  return writeJsonAtomic(file, entries);
 }

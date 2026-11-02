@@ -1,5 +1,6 @@
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { writeJsonAtomic } from '../src/storage.js';
 
 const dataDirectory = resolve('data');
 const force = process.argv.includes('--force');
@@ -55,7 +56,7 @@ if (existing.length && !force) {
   console.error('Seed skipped: data/ is not empty. Use --force to overwrite its seed files.');
   process.exitCode = 1;
 } else {
-  await writeFile(resolve(dataDirectory, 'lore.json'), `${JSON.stringify(lore, null, 2)}\n`, 'utf8');
-  await writeFile(resolve(dataDirectory, 'loremasters.json'), `${JSON.stringify(loremasters, null, 2)}\n`, 'utf8');
+  await writeJsonAtomic(resolve(dataDirectory, 'lore.json'), lore);
+  await writeJsonAtomic(resolve(dataDirectory, 'loremasters.json'), loremasters);
   console.log('Seeded 5 lore entries and 6 Loremasters in data/.');
 }

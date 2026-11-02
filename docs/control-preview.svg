@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">LORE control room screenshot placeholder</title>
+  <desc id="desc">A dark dashboard placeholder for a streamer control room screenshot.</desc>
+  <rect width="640" height="360" fill="#0b0a14"/>
+  <rect x="24" y="24" width="592" height="312" rx="14" fill="#15131f" stroke="#493b5b"/>
+  <rect x="43" y="58" width="254" height="230" rx="9" fill="#100f18" stroke="#332d40"/>
+  <rect x="315" y="58" width="280" height="102" rx="9" fill="#100f18" stroke="#332d40"/>
+  <rect x="315" y="175" width="280" height="113" rx="9" fill="#100f18" stroke="#332d40"/>
+  <text x="320" y="36" fill="#f5c451" font-family="Arial,sans-serif" font-size="12" font-weight="700" text-anchor="middle" letter-spacing="3">LORE CONTROL ROOM</text>
+  <text x="320" y="319" fill="#c8bfd8" font-family="Arial,sans-serif" font-size="12" text-anchor="middle">SCREENSHOT PLACEHOLDER</text>
+</svg>

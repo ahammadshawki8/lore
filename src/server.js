@@ -3,7 +3,7 @@ import express from 'express';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { chatEvents, connectTwitch, createClip, getStream, getUsers, sendChat, twitchState } from './twitch.js';
+import { chatEvents, connectTwitch, createClip, getStream, getUsers, sendChat, twitchState, disconnectTwitch } from './twitch.js';
 import { startDetector } from './detector.js';
 import { startInitiation } from './initiation.js';
 import { startRitualEngine } from './ritual.js';
@@ -18,7 +18,7 @@ const port = Number(process.env.PORT) || 3000;
 app.use(express.static('public'));
 app.use(express.json());
 app.get('/api/health', (_request, response) => {
-  response.json({ connected: twitchState.connected, login: twitchState.login });
+  response.json({ connected: twitchState.connected, login: twitchState.login, error: twitchState.error });
 });
 
 let trialEngine;
@@ -168,6 +168,7 @@ server.on('close', () => {
   initiation.stop();
   trialEngine.stop();
   ritual.stop();
+  disconnectTwitch();
 });
 
 server.listen(port, async () => {

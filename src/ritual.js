@@ -20,6 +20,7 @@ export async function startRitualEngine({
   const config = { ...DEFAULT_CONFIG, ...initialConfig };
   let entries = await loadLore(dataPath);
   let phase = 'IDLE';
+  let stopped = false;
   let summoners = [];
   let votes = new Map();
   let titles = [];
@@ -90,9 +91,10 @@ export async function startRitualEngine({
   }
 
   function addSummoner(message) {
-    if (summoners.some((user) => user.login === message.login)) return;
+    const login = String(message.login || '').toLowerCase();
+    if (!login || summoners.some((user) => user.login.toLowerCase() === login)) return;
     summoners.push({
-      login: message.login,
+      login,
       display_name: message.display_name || message.login,
       avatar: message.avatar || null,
     });
@@ -104,7 +106,7 @@ export async function startRitualEngine({
   }
 
   function startSummon(message) {
-    if (phase !== 'IDLE') return false;
+    if (stopped || phase !== 'IDLE') return false;
     setPhase('SUMMONING');
     summoners = [];
     summonEndsAt = new Date(Date.now() + config.summonSeconds * 1000).toISOString();
@@ -133,8 +135,20 @@ export async function startRitualEngine({
       summoners: witnesses,
     };
     try {
-      context.stream = await getStream();
-      const [createdClip, result] = await Promise.all([createClip(), loreDraft(context)]);
+      try {
+        context.stream = await getStream();
+      } catch (error) {
+        console.warn(`[ritual] Stream details unavailable, continuing without them: ${error.message}`);
+        context.stream = null;
+      }
+      if (phase !== 'DECIPHERING') return;
+      const [createdClip, result] = await Promise.all([
+        Promise.resolve().then(() => createClip()).catch((error) => {
+          console.warn(`[ritual] Clip unavailable, continuing without one: ${error.message}`);
+          return null;
+        }),
+        loreDraft(context),
+      ]);
       clip = createdClip;
       draftResult = result;
       if (phase !== 'DECIPHERING') return;
@@ -157,7 +171,7 @@ export async function startRitualEngine({
 
   function getVoteUsers() {
     const voters = [...votes.keys()].map((login) => {
-      const user = [...recentMessages].reverse().find((message) => message.login === login);
+      const user = [...recentMessages].reverse().find((message) => String(message.login).toLowerCase() === login);
       return {
         login,
         display_name: user?.display_name || login,
@@ -182,8 +196,14 @@ export async function startRitualEngine({
     for (const index of votes.values()) counts[index] += 1;
     const winner = counts.reduce((best, count, index) => count > counts[best] ? index : best, 0);
     const title = titles[winner];
+    setPhase('FINALIZING');
     try {
       await sendChat(`The people have chosen: ${title}!`);
+    } catch (error) {
+      console.warn(`[ritual] Vote announcement unavailable, continuing to canonize: ${error.message}`);
+    }
+    if (phase !== 'FINALIZING') return;
+    try {
       await canonize(title);
     } catch (error) {
       console.error(`[ritual] Could not canonize the result: ${error.message}`);
@@ -195,6 +215,7 @@ export async function startRitualEngine({
   async function canonize(title) {
     setPhase('CANONIZED');
     const [initiators, voters] = await Promise.all([hydrateAvatars(summoners), hydrateAvatars(getVoteUsers())]);
+    if (phase !== 'CANONIZED') return;
     const combined = [...initiators, ...voters];
     const unique = [...new Map(combined.map((user) => [user.login, user])).values()].slice(0, 12);
     const n = entries.reduce((max, entry) => Math.max(max, Number(entry.n) || 0), 0) + 1;
@@ -215,6 +236,7 @@ export async function startRitualEngine({
     };
     entries.push(entry);
     await saveLore(entries, dataPath);
+    if (phase !== 'CANONIZED') return;
     broadcast('canonized', entry);
     try {
       const clipUrl = clip?.url ?? '';
@@ -226,6 +248,7 @@ export async function startRitualEngine({
   }
 
   function finishRitual() {
+    if (stopped) return;
     clearTimeout(summonTimer);
     clearTimeout(voteTimer);
     clearInterval(tallyTimer);
@@ -240,6 +263,7 @@ export async function startRitualEngine({
   }
 
   function drainQueue() {
+    if (stopped) return;
     while (phase === 'IDLE' && queue.length) {
       const message = queue.shift();
       if (startSummon(message)) {
@@ -250,6 +274,7 @@ export async function startRitualEngine({
   }
 
   function onMessage(message) {
+    if (stopped) return;
     recentMessages.push(message);
     if (recentMessages.length > 40) recentMessages.shift();
     if (message.text === '!lore') {
@@ -259,7 +284,7 @@ export async function startRitualEngine({
       return;
     }
     if (phase === 'VOTING' && ['1', '2', '3'].includes(message.text)) {
-      votes.set(message.login, Number(message.text) - 1);
+      votes.set(String(message.login || '').toLowerCase(), Number(message.text) - 1);
     }
   }
 
@@ -278,6 +303,8 @@ export async function startRitualEngine({
     },
     getState: () => ({ phase, queued: queue.length }),
     stop() {
+      stopped = true;
+      phase = 'STOPPED';
       chatEvents.off('message', onMessage);
       clearTimeout(summonTimer);
       clearTimeout(voteTimer);

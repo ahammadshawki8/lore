@@ -4,6 +4,7 @@ import WebSocket from 'ws';
 const HELIX = 'https://api.twitch.tv/helix';
 const VALIDATE_URL = 'https://id.twitch.tv/oauth2/validate';
 const REQUIRED_SCOPES = 'user:read:chat user:write:chat user:bot clips:edit';
+const EVENTSUB_URL = 'wss://eventsub.wss.twitch.tv/ws';
 
 export const chatEvents = new EventEmitter();
 export const twitchState = {
@@ -18,6 +19,9 @@ let accessToken;
 let clientId;
 let socket;
 let reconnecting = false;
+let reconnectTimer = null;
+let reconnectDelay = 500;
+let stopped = false;
 const usersCache = new Map();
 
 function tokenExpiredMessage() {
@@ -25,8 +29,12 @@ function tokenExpiredMessage() {
 }
 
 async function helix(path, options = {}) {
+  if (!accessToken || !clientId || !twitchState.userId) {
+    throw new Error('Twitch is not configured. Set ACCESS_TOKEN and CLIENT_ID, then restart LORE.');
+  }
   const response = await fetch(`${HELIX}${path}`, {
     ...options,
+    signal: options.signal ?? AbortSignal.timeout(10_000),
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Client-Id': clientId,
@@ -92,11 +100,31 @@ function handleNotification(payload) {
   chatEvents.emit('message', normalized);
 }
 
+function scheduleReconnect() {
+  if (stopped || reconnectTimer) return;
+  const delay = reconnectDelay + Math.random() * Math.min(500, reconnectDelay * .2);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectSocket(EVENTSUB_URL, false);
+  }, delay);
+  reconnectDelay = Math.min(30_000, reconnectDelay * 1.8);
+}
+
 function connectSocket(url, isReconnect = false) {
-  const nextSocket = new WebSocket(url);
+  if (stopped) return;
+  let nextSocket;
+  try {
+    nextSocket = new WebSocket(url);
+  } catch (error) {
+    twitchState.connected = false;
+    twitchState.error = error.message;
+    scheduleReconnect();
+    return;
+  }
   socket = nextSocket;
 
   nextSocket.on('message', async (raw) => {
+    if (socket !== nextSocket) return;
     let payload;
     try {
       payload = JSON.parse(raw.toString());
@@ -113,6 +141,9 @@ function connectSocket(url, isReconnect = false) {
         twitchState.error = null;
         twitchState.sessionId = body.session?.id ?? null;
         reconnecting = false;
+        reconnectDelay = 500;
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
         console.log(`[twitch] EventSub connected${isReconnect ? ' (reconnected)' : ''}.`);
         if (!isReconnect && twitchState.sessionId) {
           try {
@@ -120,6 +151,7 @@ function connectSocket(url, isReconnect = false) {
           } catch (error) {
             twitchState.error = error.message;
             console.error(`[twitch] Could not subscribe to chat: ${error.message}`);
+            if (socket === nextSocket) nextSocket.close();
           }
         }
         break;
@@ -137,6 +169,7 @@ function connectSocket(url, isReconnect = false) {
         twitchState.connected = false;
         twitchState.error = `EventSub subscription revoked: ${payload.subscription?.status ?? 'unknown'}`;
         console.error(`[twitch] ${twitchState.error}`);
+        nextSocket.close();
         break;
       case 'notification':
         handleNotification(body);
@@ -147,18 +180,23 @@ function connectSocket(url, isReconnect = false) {
   });
 
   nextSocket.on('close', () => {
-    if (socket === nextSocket) {
-      twitchState.connected = false;
-      twitchState.sessionId = null;
-    }
+    if (socket !== nextSocket) return;
+    socket = null;
+    twitchState.connected = false;
+    twitchState.sessionId = null;
+    reconnecting = false;
+    scheduleReconnect();
   });
   nextSocket.on('error', (error) => {
+    if (socket !== nextSocket) return;
     twitchState.error = error.message;
     console.error(`[twitch] EventSub WebSocket error: ${error.message}`);
+    nextSocket.close();
   });
 }
 
 export async function connectTwitch() {
+  stopped = false;
   accessToken = process.env.ACCESS_TOKEN;
   clientId = process.env.CLIENT_ID;
   if (!accessToken || !clientId) {
@@ -167,7 +205,7 @@ export async function connectTwitch() {
 
   let response;
   try {
-    response = await fetch(VALIDATE_URL, { headers: { Authorization: `OAuth ${accessToken}` } });
+    response = await fetch(VALIDATE_URL, { headers: { Authorization: `OAuth ${accessToken}` }, signal: AbortSignal.timeout(10_000) });
   } catch (error) {
     throw new Error(`Could not validate Twitch token: ${error.message}`);
   }
@@ -179,7 +217,19 @@ export async function connectTwitch() {
   twitchState.userId = identity.user_id;
   twitchState.login = identity.login;
   console.log(`[twitch] Validated account @${identity.login}.`);
-  connectSocket('wss://eventsub.wss.twitch.tv/ws');
+  connectSocket(EVENTSUB_URL);
+}
+
+export function disconnectTwitch() {
+  stopped = true;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  reconnecting = false;
+  const current = socket;
+  socket = null;
+  twitchState.connected = false;
+  twitchState.sessionId = null;
+  if (current && current.readyState !== WebSocket.CLOSED) current.close();
 }
 
 export async function sendChat(text) {

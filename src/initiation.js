@@ -1,6 +1,5 @@
-import { loadLore, saveLore } from './storage.js';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { loadLore, saveLore, writeJsonAtomic } from './storage.js';
 
 const STOP_WORDS = new Set(['a', 'an', 'and', 'are', 'does', 'do', 'for', 'how', 'i', 'is', 'it', 'mean', 'of', 'or', 'the', 'this', 'to', 'what', 'when', 'where', 'who', 'why']);
 
@@ -57,8 +56,7 @@ async function loadInitiatedUsers(file) {
 }
 
 async function saveInitiatedUsers(users, file) {
-  await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify({ users: [...users].sort() }, null, 2)}\n`, 'utf8');
+  await writeJsonAtomic(file, { users: [...users].sort() });
 }
 
 export async function startInitiation({
@@ -93,7 +91,7 @@ export async function startInitiation({
   function persist(users) {
     const initiatedSnapshot = new Set(initiatedUsers);
     const loreSnapshot = [...users];
-    persistQueue = persistQueue.then(() => Promise.all([
+    persistQueue = persistQueue.catch(() => {}).then(() => Promise.all([
       saveLore(loreSnapshot, lorePath),
       saveInitiatedUsers(initiatedSnapshot, usersPath),
     ]));

@@ -1,6 +1,14 @@
-Project rules (also in AGENTS.md): the project is named LORE (never "Lore Codex"), and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
+Project rules (also in AGENTS.md): the project is named LORE and its name must remain LORE, and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
 
 Final step: hardening and documentation.
+
+0) Two overlay bugs from my visual review: (a) in the SUMMON scene the hexagon and triangle
+of the magic sigil rotate around the wrong origin, so the hexagon drifts off to the right of
+the circle and the triangle hangs below it. Make every sigil layer share the circle's exact
+center (SVG transform-box: fill-box / transform-origin: center, or rotate inside one SVG
+viewBox around its center). (b) In TRIALS the correct answer tile shows MIRRORED text during
+its flip; use backface-visibility hidden with a front/back face, or animate scale instead of
+rotateY.
 
 1) Review the whole project for bugs and races: ritual queueing, trial vs ritual conflicts,
 vote double counting, the overlay websocket reconnect, clip failure while offline, EventSub
@@ -10,7 +18,7 @@ passes.
 
 2) README.md, written for hackathon judges:
 - Title "LORE" + tagline "Every community has lore. Now chat gets to write it."
-- Also do a final sweep: rename any remaining "Lore Codex" to "LORE" (package.json name "lore", page titles, logs, README) and replace every em dash character in the repo with normal punctuation.
+- Also do a final sweep: replace any remaining legacy product name with "LORE" (package.json name "lore", page titles, logs, README) and replace every em dash character in the repo with normal punctuation.
 - What it is (3 sentences), then "The Ritual" step by step (summon, decipher, vote,
   canonize, initiate, trials, codex)
 - Screenshot/GIF placeholders (docs/ folder)

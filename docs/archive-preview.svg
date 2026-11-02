@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">LORE archive screenshot placeholder</title>
+  <desc id="desc">A constellation placeholder for the public archive screenshot.</desc>
+  <defs><radialGradient id="night"><stop stop-color="#1b1932"/><stop offset="1" stop-color="#080a16"/></radialGradient></defs>
+  <rect width="640" height="360" fill="url(#night)"/>
+  <path d="M93 247 181 118 278 192 380 91 505 174 560 103" fill="none" stroke="#b79bdd" stroke-opacity=".45"/>
+  <g fill="#f5c451"><circle cx="93" cy="247" r="5"/><circle cx="181" cy="118" r="7"/><circle cx="278" cy="192" r="5"/><circle cx="380" cy="91" r="8"/><circle cx="505" cy="174" r="6"/><circle cx="560" cy="103" r="5"/></g>
+  <text x="320" y="300" fill="#f5c451" font-family="Georgia,serif" font-size="26" font-weight="700" text-anchor="middle" letter-spacing="5">COMMUNITY ARCHIVE</text>
+  <text x="320" y="326" fill="#c8bfd8" font-family="Arial,sans-serif" font-size="12" text-anchor="middle">SCREENSHOT PLACEHOLDER</text>
+</svg>

@@ -1,4 +1,4 @@
-Project rules (also in AGENTS.md): the project is named LORE (never "Lore Codex"), and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
+Project rules (also in AGENTS.md): the project is named LORE and its name must remain LORE, and never use the em dash character anywhere (code, UI text, chat messages, comments, docs).
 
 Next step: the OBS overlay. This is the most important part of the project: judges score
 "fun to watch", so it must look like a AAA game cinematic, not a web page. Take your time

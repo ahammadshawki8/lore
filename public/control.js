@@ -41,7 +41,7 @@
     try {
       const [health,state]=await Promise.all([request('/api/health'),request('/api/state')]);
       const light=byId('connection-light');light.classList.toggle('online',Boolean(health.connected));light.classList.toggle('offline',!health.connected);
-      byId('connection-status').textContent=health.connected?'Connected':'Disconnected';byId('connection-login').textContent=health.login?`@${health.login}`:'No broadcaster login';renderState(state);
+      byId('connection-status').textContent=health.connected?'Connected':'Disconnected';byId('connection-login').textContent=health.login?`@${health.login}`:(health.error||'No broadcaster login');renderState(state);
     } catch(error) {byId('connection-status').textContent='Server unavailable';byId('connection-login').textContent=error.message;}
   }
   async function load() {

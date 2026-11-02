@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { writeJsonAtomic } from './storage.js';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -14,8 +14,7 @@ async function loadLeaderboard(file) {
 }
 
 async function saveLeaderboard(leaderboard, file) {
-  await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify(leaderboard, null, 2)}\n`, 'utf8');
+  await writeJsonAtomic(file, leaderboard);
 }
 
 function shuffle(items, random) {
@@ -113,27 +112,39 @@ export async function startTrials({
       awards.push({ answer, user, points });
     }
     if (active !== trial || trial.cancelled) return;
+    const previousLeaderboard = leaderboard;
+    const nextLeaderboard = leaderboard.map((user) => ({ ...user }));
     for (const { answer, user, points } of awards) {
-      const existing = leaderboard.find((item) => item.login.toLowerCase() === answer.login.toLowerCase());
+      const existing = nextLeaderboard.find((item) => item.login.toLowerCase() === answer.login.toLowerCase());
       if (existing) {
         existing.display_name = answer.display_name;
         existing.avatar = user.avatar ?? existing.avatar ?? null;
         existing.score = (existing.score ?? 0) + points;
         existing.wins = (existing.wins ?? 0) + 1;
       } else {
-        leaderboard.push({ ...user, score: points, wins: 1 });
+        nextLeaderboard.push({ ...user, score: points, wins: 1 });
       }
       answer.points = points;
     }
-    leaderboard.sort((a, b) => b.score - a.score || b.wins - a.wins || a.login.localeCompare(b.login));
+    nextLeaderboard.sort((a, b) => b.score - a.score || b.wins - a.wins || a.login.localeCompare(b.login));
     if (active !== trial || trial.cancelled) return;
-    await saveLeaderboard(leaderboard, leaderboardPath);
-    if (active !== trial || trial.cancelled) return;
-    const topFive = await Promise.all(leaderboard.slice(0, 5).map(async (user) => ({
+    const topFive = await Promise.all(nextLeaderboard.slice(0, 5).map(async (user) => ({
       ...user,
       avatar: await chatterAvatar(user),
     })));
     if (active !== trial || trial.cancelled) return;
+    leaderboard = nextLeaderboard;
+    try {
+      await saveLeaderboard(leaderboard, leaderboardPath);
+    } catch (error) {
+      leaderboard = previousLeaderboard;
+      throw error;
+    }
+    if (active !== trial || trial.cancelled) {
+      leaderboard = previousLeaderboard;
+      await saveLeaderboard(leaderboard, leaderboardPath);
+      return;
+    }
     broadcast('trial_result', {
       correctIndex: trial.correctIndex,
       correctUsers,
@@ -210,7 +221,12 @@ export async function startTrials({
     const prompt = `Lore Trial: ${question} ${options.map((title, index) => `${LETTERS[index]}) ${title}`).join(' | ')} Reply A, B, C, or D!`;
     void sendChat(prompt).catch((error) => console.error(`[trials] Could not send trial question: ${error.message}`));
     active.interval = setInterval(sendTally, 500);
-    active.timeout = setTimeout(() => void endTrial(), durationSeconds * 1000);
+    active.timeout = setTimeout(() => {
+      void endTrial().catch((error) => {
+        console.error(`[trials] Could not save trial results: ${error.message}`);
+        if (active?.finishing) active = null;
+      });
+    }, durationSeconds * 1000);
   }
 
   function onMessage(message) {

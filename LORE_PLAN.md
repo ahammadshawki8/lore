@@ -1,9 +1,9 @@
-# LORE CODEX v2, Build Plan (paste prompts into ONE Codex thread, in order)
+# LORE v2, Build Plan (paste prompts into ONE Codex thread, in order)
 
 > Every community has lore. Now chat gets to write it.
 
 ## Pitch
-When something legendary happens on stream, chat summons it into canon. Lore Codex clips the moment, has AI draft three titles, lets chat vote on the name in a live ritual, and canonizes the winner in an on-stream ceremony. Later it initiates newcomers into the jokes and quizzes regulars in the Lore Trials. The result is a living, community-written history of the channel.
+When something legendary happens on stream, chat summons it into canon. LORE clips the moment, has AI draft three titles, lets chat vote on the name in a live ritual, and canonizes the winner in an on-stream ceremony. Later it initiates newcomers into the jokes and quizzes regulars in the Lore Trials. The result is a living, community-written history of the channel.
 
 ## What changed from v1 (and why)
 | v1 problem | v2 fix |
@@ -59,7 +59,7 @@ Env: `TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_BOT_USER_ID, TWITCH_BROADCA
 
 ### 1. Scaffold + Twitch
 ```
-We're building "Lore Codex" for the Codex x TwitchCon hackathon: chat summons memorable
+We're building "LORE" for the Codex x TwitchCon hackathon: chat summons memorable
 stream moments into a community "canon" via an on-stream ritual (summon → AI drafts 3
 titles → chat votes → cinematic canonization with auto clip), plus newcomer initiation,
 a lore quiz, and a public archive page.
@@ -182,4 +182,4 @@ the loop, architecture, setup (Twitch app, scopes, .env, OBS browser source), de
 - 1:35-2:00 Lore Trials: chat races to answer, Loremaster podium.
 - 2:00-2:20 Codex starmap: click a star, the clip plays.
 - 2:20-2:42 Built with Codex: quick cuts of the thread, overlay iterations, /status session ID.
-- 2:42-2:50 "Lore Codex. Every community has lore." + repo URL.
+- 2:42-2:50 "LORE. Every community has lore." + repo URL.

@@ -1,4 +1,4 @@
-We're building "Lore Codex" for the Codex x TwitchCon hackathon: chat summons memorable
+We're building "LORE" for the Codex x TwitchCon hackathon: chat summons memorable
 stream moments into a community "canon" via an on-stream ritual (summon -> AI drafts 3
 titles -> chat votes -> cinematic canonization with auto clip), plus newcomer initiation,
 a lore quiz, and a public archive page. This first step is ONLY the foundation: Twitch
