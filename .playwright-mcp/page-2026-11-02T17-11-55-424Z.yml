@@ -1,0 +1,32 @@
+- generic [active] [ref=e1]:
+  - main:
+    - region "Chat lore pressure":
+      - img [aria-hidden]:
+        - generic:
+          - generic: ᚠ
+          - generic: ᚢ
+          - generic: ᚦ
+          - generic: ᚨ
+          - generic: ᚱ
+          - generic: ᚲ
+          - generic: ᚷ
+          - generic: ᚹ
+          - generic: ᚺ
+          - generic: ᚾ
+          - generic: ᛁ
+          - generic: ᛃ
+      - generic:
+        - generic: chat is this real
+        - generic: chat senses lore...
+    - region "LORE live scene":
+      - generic:
+        - generic: A NEW WITNESS ENTERS
+        - img "New Witness"
+        - article:
+          - heading "@New Witness HAS BEEN INITIATED" [level=2]
+          - heading "The Great Reality Audit" [level=3]
+          - paragraph: Chat asks this whenever a moment seems too strange to be true.
+          - generic: "INITIATE #12"
+    - complementary:
+      - generic: 🔎
+      - generic: "LORE #2"
