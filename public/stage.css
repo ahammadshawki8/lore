@@ -1,0 +1,5 @@
+*{box-sizing:border-box}
+html,body,#game{width:100%;height:100%;margin:0;overflow:hidden;background:#17102f}
+body{position:fixed;inset:0;overscroll-behavior:none}
+#game{position:absolute;inset:0}
+#game-canvas{display:block;width:100%;height:100%;touch-action:none}
